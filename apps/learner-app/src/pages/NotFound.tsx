@@ -34,19 +34,17 @@ export function NotFound() {
               🏠 Go Home
             </button>
             
-            {process.env.NODE_ENV === 'development' && (
-              <button
-                data-testid="nav-to-catalog"
-                onClick={() => navigate('/dev/routes')}
-                className="px-6 py-3 rounded-lg border-2 font-bold transition-all"
-                style={{
-                  borderColor: themeConfig.colors.primary,
-                  color: themeConfig.colors.primary,
-                }}
-              >
-                📋 View Route Catalog
-              </button>
-            )}
+            <button
+              data-testid="nav-to-catalog"
+              onClick={() => navigate('/dev/routes')}
+              className="px-6 py-3 rounded-lg border-2 font-bold transition-all"
+              style={{
+                borderColor: themeConfig.colors.primary,
+                color: themeConfig.colors.primary,
+              }}
+            >
+              📋 View Route Catalog
+            </button>
           </div>
         </div>
       </div>

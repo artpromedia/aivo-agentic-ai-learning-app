@@ -135,104 +135,102 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           
+          {/* Dev Routes - Public for testing */}
+          <Route path="/dev/routes" element={<DevRoutes />} />
+          
           {/* Protected Routes for Learners */}
-          <Route path="/*" element={
-            <ProtectedRoute allowedRoles={['learner']}>
-              <Routes>
-                <Route path="/" element={<Lock />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route 
-                  path="/sensory-profile" 
-                  element={
-                    <SensoryProfileSetup 
-                      learnerId="demo_learner_123" 
-                      onComplete={() => window.location.href = '/'} 
-                    />
-                  } 
+          <Route path="/" element={<ProtectedRoute allowedRoles={['learner']}><Lock /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute allowedRoles={['learner']}><Profile /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute allowedRoles={['learner']}><Settings /></ProtectedRoute>} />
+          <Route 
+            path="/sensory-profile" 
+            element={
+              <ProtectedRoute allowedRoles={['learner']}>
+                <SensoryProfileSetup 
+                  learnerId="demo_learner_123" 
+                  onComplete={() => window.location.href = '/'} 
                 />
-                <Route 
-                  path="/calm" 
-                  element={
-                    <SelfRegulationHub 
-                      learnerId="demo_learner_123" 
-                      onClose={() => window.location.href = '/'} 
-                    />
-                  } 
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/calm" 
+            element={
+              <ProtectedRoute allowedRoles={['learner']}>
+                <SelfRegulationHub 
+                  learnerId="demo_learner_123" 
+                  onClose={() => window.location.href = '/'} 
                 />
-                <Route path="/organize" element={<ExecutiveFunctionPage />} />
-                <Route path="/subjects" element={<SubjectSelection />} />
-                <Route path="/cloning" element={<ModelCloning />} />
-                <Route path="/assessment" element={<BaselineAssessment />} />
-                <Route path="/assessment-results" element={<AssessmentResults />} />
-                <Route path="/activity/reading" element={<ReadingActivity />} />
-                <Route path="/activity/math" element={<MathActivity />} />
-                <Route path="/activity/speech" element={<SpeechActivity />} />
-                <Route path="/rewards" element={<Rewards />} />
-                
-                {/* Homework Helper */}
-                <Route path="/homework-helper" element={<HomeworkInbox learnerId="demo_learner_123" />} />
-                <Route path="/homework-helper/new" element={<HomeworkHelperPage />} />
-                <Route path="/homework-helper/:sessionId" element={<HomeworkSession />} />
-                
-                {/* Activity Route - For individual lessons/activities */}
-                <Route path="/learner/:theme/subject/:subjectId/activity/:activityId" element={<ActivityPage />} />
-                
-                {/* Subject Detail Route - Dynamic for all themes */}
-                <Route path="/learner/:theme/subject/:subjectId" element={<SubjectDetailPage />} />
-                
-                {/* K5 Subject Routes */}
-                <Route path="/learner/k5/math" element={<K5Math />} />
-                <Route path="/learner/k5/science" element={<K5Science />} />
-                <Route path="/learner/k5/reading" element={<K5Reading />} />
-                <Route path="/learner/k5/writing" element={<K5Writing />} />
-                <Route path="/learner/k5/socialstudies" element={<K5SocialStudies />} />
-                <Route path="/learner/k5/art" element={<K5Art />} />
-                <Route path="/learner/k5/music" element={<K5Music />} />
-                <Route path="/learner/k5/pe" element={<K5PE />} />
-                <Route path="/learner/k5/health" element={<K5Health />} />
-                <Route path="/learner/k5/technology" element={<K5Technology />} />
-                
-                {/* MS Subject Routes */}
-                <Route path="/learner/ms/math" element={<MSMath />} />
-                <Route path="/learner/ms/science" element={<MSScience />} />
-                <Route path="/learner/ms/ela" element={<MSELA />} />
-                <Route path="/learner/ms/socialstudies" element={<MSSocialStudies />} />
-                <Route path="/learner/ms/worldlanguages" element={<MSWorldLanguages />} />
-                <Route path="/learner/ms/arts" element={<MSArts />} />
-                <Route path="/learner/ms/pehealth" element={<MSPEHealth />} />
-                <Route path="/learner/ms/technologycs" element={<MSTechnologyCS />} />
-                
-                {/* HS Math Routes */}
-                <Route path="/learner/hs/algebrai" element={<AlgebraIPage />} />
-                <Route path="/learner/hs/geometry" element={<GeometryPage />} />
-                <Route path="/learner/hs/algebraii" element={<AlgebraIIPage />} />
-                <Route path="/learner/hs/precalculus" element={<PrecalculusPage />} />
-                <Route path="/learner/hs/calculus" element={<CalculusPage />} />
-                
-                {/* HS Science Routes */}
-                <Route path="/learner/hs/biology" element={<BiologyPage />} />
-                <Route path="/learner/hs/chemistry" element={<ChemistryPage />} />
-                <Route path="/learner/hs/physics" element={<PhysicsPage />} />
-                
-                {/* HS Other Routes */}
-                <Route path="/learner/hs/ela" element={<HSELA />} />
-                <Route path="/learner/hs/ushistory" element={<USHistoryPage />} />
-                <Route path="/learner/hs/worldhistory" element={<WorldHistoryPage />} />
-                <Route path="/learner/hs/govecon" element={<GovEconPage />} />
-                <Route path="/learner/hs/computerscience" element={<ComputerSciencePage />} />
-                <Route path="/learner/hs/worldlanguages" element={<HSWorldLanguages />} />
-                <Route path="/learner/hs/arts" element={<HSArts />} />
-                <Route path="/learner/hs/pehealth" element={<HSPEHealth />} />
-                
-                {/* Dev Routes */}
-                <Route path="/dev/routes" element={<DevRoutes />} />
-                
-                {/* 404 Catch-all */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </ProtectedRoute>
-          } />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/organize" element={<ProtectedRoute allowedRoles={['learner']}><ExecutiveFunctionPage /></ProtectedRoute>} />
+          <Route path="/subjects" element={<ProtectedRoute allowedRoles={['learner']}><SubjectSelection /></ProtectedRoute>} />
+          <Route path="/cloning" element={<ProtectedRoute allowedRoles={['learner']}><ModelCloning /></ProtectedRoute>} />
+          <Route path="/assessment" element={<ProtectedRoute allowedRoles={['learner']}><BaselineAssessment /></ProtectedRoute>} />
+          <Route path="/assessment-results" element={<ProtectedRoute allowedRoles={['learner']}><AssessmentResults /></ProtectedRoute>} />
+          <Route path="/activity/reading" element={<ProtectedRoute allowedRoles={['learner']}><ReadingActivity /></ProtectedRoute>} />
+          <Route path="/activity/math" element={<ProtectedRoute allowedRoles={['learner']}><MathActivity /></ProtectedRoute>} />
+          <Route path="/activity/speech" element={<ProtectedRoute allowedRoles={['learner']}><SpeechActivity /></ProtectedRoute>} />
+          <Route path="/rewards" element={<ProtectedRoute allowedRoles={['learner']}><Rewards /></ProtectedRoute>} />
+          
+          {/* Homework Helper */}
+          <Route path="/homework-helper" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkInbox learnerId="demo_learner_123" /></ProtectedRoute>} />
+          <Route path="/homework-helper/new" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkHelperPage /></ProtectedRoute>} />
+          <Route path="/homework-helper/:sessionId" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkSession /></ProtectedRoute>} />
+          
+          {/* Activity Route - For individual lessons/activities */}
+          <Route path="/learner/:theme/subject/:subjectId/activity/:activityId" element={<ProtectedRoute allowedRoles={['learner']}><ActivityPage /></ProtectedRoute>} />
+          
+          {/* Subject Detail Route - Dynamic for all themes */}
+          <Route path="/learner/:theme/subject/:subjectId" element={<ProtectedRoute allowedRoles={['learner']}><SubjectDetailPage /></ProtectedRoute>} />
+          
+          {/* K5 Subject Routes */}
+          <Route path="/learner/k5/math" element={<ProtectedRoute allowedRoles={['learner']}><K5Math /></ProtectedRoute>} />
+          <Route path="/learner/k5/science" element={<ProtectedRoute allowedRoles={['learner']}><K5Science /></ProtectedRoute>} />
+          <Route path="/learner/k5/reading" element={<ProtectedRoute allowedRoles={['learner']}><K5Reading /></ProtectedRoute>} />
+          <Route path="/learner/k5/writing" element={<ProtectedRoute allowedRoles={['learner']}><K5Writing /></ProtectedRoute>} />
+          <Route path="/learner/k5/socialstudies" element={<ProtectedRoute allowedRoles={['learner']}><K5SocialStudies /></ProtectedRoute>} />
+          <Route path="/learner/k5/art" element={<ProtectedRoute allowedRoles={['learner']}><K5Art /></ProtectedRoute>} />
+          <Route path="/learner/k5/music" element={<ProtectedRoute allowedRoles={['learner']}><K5Music /></ProtectedRoute>} />
+          <Route path="/learner/k5/pe" element={<ProtectedRoute allowedRoles={['learner']}><K5PE /></ProtectedRoute>} />
+          <Route path="/learner/k5/health" element={<ProtectedRoute allowedRoles={['learner']}><K5Health /></ProtectedRoute>} />
+          <Route path="/learner/k5/technology" element={<ProtectedRoute allowedRoles={['learner']}><K5Technology /></ProtectedRoute>} />
+          
+          {/* MS Subject Routes */}
+          <Route path="/learner/ms/math" element={<ProtectedRoute allowedRoles={['learner']}><MSMath /></ProtectedRoute>} />
+          <Route path="/learner/ms/science" element={<ProtectedRoute allowedRoles={['learner']}><MSScience /></ProtectedRoute>} />
+          <Route path="/learner/ms/ela" element={<ProtectedRoute allowedRoles={['learner']}><MSELA /></ProtectedRoute>} />
+          <Route path="/learner/ms/socialstudies" element={<ProtectedRoute allowedRoles={['learner']}><MSSocialStudies /></ProtectedRoute>} />
+          <Route path="/learner/ms/worldlanguages" element={<ProtectedRoute allowedRoles={['learner']}><MSWorldLanguages /></ProtectedRoute>} />
+          <Route path="/learner/ms/arts" element={<ProtectedRoute allowedRoles={['learner']}><MSArts /></ProtectedRoute>} />
+          <Route path="/learner/ms/pehealth" element={<ProtectedRoute allowedRoles={['learner']}><MSPEHealth /></ProtectedRoute>} />
+          <Route path="/learner/ms/technologycs" element={<ProtectedRoute allowedRoles={['learner']}><MSTechnologyCS /></ProtectedRoute>} />
+          
+          {/* HS Math Routes */}
+          <Route path="/learner/hs/algebrai" element={<ProtectedRoute allowedRoles={['learner']}><AlgebraIPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/geometry" element={<ProtectedRoute allowedRoles={['learner']}><GeometryPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/algebraii" element={<ProtectedRoute allowedRoles={['learner']}><AlgebraIIPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/precalculus" element={<ProtectedRoute allowedRoles={['learner']}><PrecalculusPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/calculus" element={<ProtectedRoute allowedRoles={['learner']}><CalculusPage /></ProtectedRoute>} />
+          
+          {/* HS Science Routes */}
+          <Route path="/learner/hs/biology" element={<ProtectedRoute allowedRoles={['learner']}><BiologyPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/chemistry" element={<ProtectedRoute allowedRoles={['learner']}><ChemistryPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/physics" element={<ProtectedRoute allowedRoles={['learner']}><PhysicsPage /></ProtectedRoute>} />
+          
+          {/* HS Other Routes */}
+          <Route path="/learner/hs/ela" element={<ProtectedRoute allowedRoles={['learner']}><HSELA /></ProtectedRoute>} />
+          <Route path="/learner/hs/ushistory" element={<ProtectedRoute allowedRoles={['learner']}><USHistoryPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/worldhistory" element={<ProtectedRoute allowedRoles={['learner']}><WorldHistoryPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/govecon" element={<ProtectedRoute allowedRoles={['learner']}><GovEconPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/computerscience" element={<ProtectedRoute allowedRoles={['learner']}><ComputerSciencePage /></ProtectedRoute>} />
+          <Route path="/learner/hs/worldlanguages" element={<ProtectedRoute allowedRoles={['learner']}><HSWorldLanguages /></ProtectedRoute>} />
+          <Route path="/learner/hs/arts" element={<ProtectedRoute allowedRoles={['learner']}><HSArts /></ProtectedRoute>} />
+          <Route path="/learner/hs/pehealth" element={<ProtectedRoute allowedRoles={['learner']}><HSPEHealth /></ProtectedRoute>} />
+          
+          {/* 404 Catch-all - Must be last and public to show 404 page */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
         </RouteTestWrapper>
         
