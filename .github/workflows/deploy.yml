@@ -26,6 +26,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create .env files
+        run: |
+          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > .env
+          echo "NODE_ENV=production" >> .env
+          cp .env apps/learner-app/.env || true
+          cp .env apps/parent-portal/.env || true
+          cp .env apps/teacher-portal/.env || true
+          cp .env apps/admin-portal/.env || true
+          cp .env apps/district-portal/.env || true
+          cp .env apps/web/.env || true
+
       - name: Build all apps
         run: pnpm build
 

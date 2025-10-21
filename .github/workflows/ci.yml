@@ -42,6 +42,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create .env files for CI
+        run: |
+          echo "VITE_API_URL=http://localhost:3000/api" > .env
+          echo "NODE_ENV=test" >> .env
+          # Copy to all apps that need it
+          cp .env apps/learner-app/.env || true
+          cp .env apps/parent-portal/.env || true
+          cp .env apps/teacher-portal/.env || true
+          cp .env apps/admin-portal/.env || true
+          cp .env apps/district-portal/.env || true
+          cp .env apps/web/.env || true
+
       - name: Lint
         run: pnpm lint
 
@@ -83,6 +95,17 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Create .env files for CI
+        run: |
+          echo "VITE_API_URL=http://localhost:3000/api" > .env
+          echo "NODE_ENV=test" >> .env
+          cp .env apps/learner-app/.env || true
+          cp .env apps/parent-portal/.env || true
+          cp .env apps/teacher-portal/.env || true
+          cp .env apps/admin-portal/.env || true
+          cp .env apps/district-portal/.env || true
+          cp .env apps/web/.env || true
 
       - name: Build all apps
         run: pnpm build
