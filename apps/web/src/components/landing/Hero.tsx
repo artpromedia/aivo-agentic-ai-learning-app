@@ -1,7 +1,20 @@
 import { Button } from '@aivo/ui';
 import { CheckIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 
 export function Hero() {
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    // In production, this would check if user is logged in
+    // For now, navigate to learner app onboarding - starts with assessment
+    window.location.href = 'http://localhost:3005/#/assessment';
+  };
+
+  const handleScheduleDemo = () => {
+    navigate('/contact');
+  };
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-blue-50 to-white py-20 lg:py-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -28,10 +41,13 @@ export function Hero() {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4 mb-8">
-              <Button variant="primary" size="lg">
+              <Button variant="primary" size="lg" onClick={handleGetStarted}>
                 Start Free Trial
               </Button>
-              <button className="px-8 py-4 border-2 border-neutral-300 text-neutral-700 rounded-lg font-semibold hover:border-neutral-400 hover:bg-neutral-50 transition">
+              <button 
+                onClick={handleScheduleDemo}
+                className="px-8 py-4 border-2 border-neutral-300 text-neutral-700 rounded-lg font-semibold hover:border-neutral-400 hover:bg-neutral-50 transition"
+              >
                 Schedule Demo
               </button>
             </div>

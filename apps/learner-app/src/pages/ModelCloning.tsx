@@ -31,7 +31,7 @@ export function ModelCloning() {
         // Navigate when complete
         if (newProgress === 100) {
           setTimeout(() => {
-            navigate('/assessment');
+            navigate('/assessment-results');
           }, 2000);
         }
         

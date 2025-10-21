@@ -70,7 +70,8 @@ export function BaselineAssessment() {
       if (currentQuestionIndex < assessmentQuestions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
-        navigate('/assessment-results');
+        // After assessment, clone the model based on results
+        navigate('/cloning');
       }
     }, 1500);
   };

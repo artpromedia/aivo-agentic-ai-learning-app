@@ -2,6 +2,10 @@ import { CheckIcon } from '@heroicons/react/24/solid';
 import { Button } from '@aivo/ui';
 
 export function Pricing() {
+  const handleGetStarted = () => {
+    window.location.href = 'http://localhost:3005/#/assessment';
+  };
+
   return (
     <section className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -63,7 +67,10 @@ export function Pricing() {
             </ul>
 
             {/* CTA */}
-            <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 text-lg font-semibold">
+            <Button 
+              onClick={handleGetStarted}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 text-lg font-semibold"
+            >
               Join Waitlist
             </Button>
             <p className="text-center text-sm text-neutral-500 mt-4">

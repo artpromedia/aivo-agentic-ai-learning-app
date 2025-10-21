@@ -1,6 +1,17 @@
 import { CheckIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 
 export function FinalCTA() {
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    window.location.href = 'http://localhost:3005/#/assessment';
+  };
+
+  const handleScheduleDemo = () => {
+    navigate('/contact');
+  };
+
   return (
     <section className="py-20 bg-gradient-to-br from-primary-600 to-primary-800 text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -16,10 +27,16 @@ export function FinalCTA() {
 
         {/* CTA Buttons */}
         <div className="flex flex-wrap justify-center gap-4 mb-10">
-          <button className="px-8 py-4 bg-white text-primary-700 rounded-lg font-semibold hover:bg-neutral-50 transition shadow-lg">
+          <button 
+            onClick={handleScheduleDemo}
+            className="px-8 py-4 bg-white text-primary-700 rounded-lg font-semibold hover:bg-neutral-50 transition shadow-lg"
+          >
             Schedule a Demo
           </button>
-          <button className="px-8 py-4 border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition">
+          <button 
+            onClick={handleGetStarted}
+            className="px-8 py-4 border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition"
+          >
             Start Free Trial
           </button>
         </div>
