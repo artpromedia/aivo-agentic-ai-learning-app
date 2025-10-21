@@ -30,6 +30,9 @@ from app.models import (
     ProgressRecord,
     DailyMetrics,
     SubjectMetrics,
+    AIProvider,
+    AIModel,
+    AIProviderFallback,
 )
 
 # this is the Alembic Config object, which provides

@@ -8,6 +8,13 @@ from app.models.regulation import RegulationSession, EmotionHistory, EmotionType
 from app.models.iep import IEPGoal, IEPDataPoint, IEPGoalStatus
 from app.models.progress import ProgressRecord
 from app.models.analytics import DailyMetrics, SubjectMetrics
+from app.models.ai_provider import (
+    AIProvider,
+    AIModel,
+    AIProviderFallback,
+    AIProviderType,
+    AIModelCapability,
+)
 
 __all__ = [
     # Base
@@ -48,4 +55,11 @@ __all__ = [
     # Analytics
     "DailyMetrics",
     "SubjectMetrics",
+    
+    # AI Providers
+    "AIProvider",
+    "AIModel",
+    "AIProviderFallback",
+    "AIProviderType",
+    "AIModelCapability",
 ]

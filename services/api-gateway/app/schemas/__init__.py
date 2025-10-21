@@ -66,6 +66,21 @@ from app.schemas.analytics import (
     SubjectMetricsResponse,
     AnalyticsSummary,
 )
+from app.schemas.ai_provider import (
+    AIProviderBase,
+    AIProviderCreate,
+    AIProviderUpdate,
+    AIProviderResponse,
+    AIModelBase,
+    AIModelCreate,
+    AIModelUpdate,
+    AIModelResponse,
+    AIProviderFallbackCreate,
+    AIProviderFallbackUpdate,
+    AIProviderFallbackResponse,
+    AICompletionRequest,
+    AICompletionResponse,
+)
 
 __all__ = [
     # Response
@@ -134,4 +149,19 @@ __all__ = [
     "DailyMetricsResponse",
     "SubjectMetricsResponse",
     "AnalyticsSummary",
+    
+    # AI Providers
+    "AIProviderBase",
+    "AIProviderCreate",
+    "AIProviderUpdate",
+    "AIProviderResponse",
+    "AIModelBase",
+    "AIModelCreate",
+    "AIModelUpdate",
+    "AIModelResponse",
+    "AIProviderFallbackCreate",
+    "AIProviderFallbackUpdate",
+    "AIProviderFallbackResponse",
+    "AICompletionRequest",
+    "AICompletionResponse",
 ]
