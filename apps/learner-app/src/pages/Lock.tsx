@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@aivo/ui';
+import { PageWrapper } from '../components/PageWrapper';
 
 export function Lock() {
   const { themeConfig } = useTheme();
@@ -45,6 +46,7 @@ export function Lock() {
   };
 
   return (
+    <PageWrapper>
     <div 
       className="min-h-screen bg-gradient-to-br flex items-center justify-center p-4 md:p-8 relative overflow-hidden"
       style={{
@@ -239,5 +241,6 @@ export function Lock() {
         }
       `}</style>
     </div>
+    </PageWrapper>
   );
 }

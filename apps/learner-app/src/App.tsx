@@ -6,6 +6,9 @@ import Unauthorized from './pages/Unauthorized';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import { Lock } from './pages/Lock';
+import { NotFound } from './pages/NotFound';
+import { DevRoutes } from './pages/DevRoutes';
+import { RouteTestWrapper } from './components/RouteTestWrapper';
 import { SensoryProfileSetup } from './components/SensoryProfile';
 import { SelfRegulationHub } from './components/SelfRegulation';
 import { ExecutiveFunctionPage } from './pages/ExecutiveFunction';
@@ -122,9 +125,10 @@ function App() {
   return (
     <LearnerErrorBoundary>
       <AuthProvider apiBaseUrl={import.meta.env.VITE_API_URL || '/api'}>
-        <ThemeProvider defaultTheme="MS" persistTheme>
+          <ThemeProvider defaultTheme="MS" persistTheme>
           <GradeBasedThemeSync />
           <BrowserRouter>
+          <RouteTestWrapper>
           <ConnectivityBanner />
           <Routes>
           {/* Public Routes */}
@@ -220,10 +224,17 @@ function App() {
                 <Route path="/learner/hs/worldlanguages" element={<HSWorldLanguages />} />
                 <Route path="/learner/hs/arts" element={<HSArts />} />
                 <Route path="/learner/hs/pehealth" element={<HSPEHealth />} />
+                
+                {/* Dev Routes */}
+                <Route path="/dev/routes" element={<DevRoutes />} />
+                
+                {/* 404 Catch-all */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </ProtectedRoute>
           } />
         </Routes>
+        </RouteTestWrapper>
         
         {/* Global PWA Components */}
         <OfflineIndicator />
