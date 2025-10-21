@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aivo Learning - PWA Icon Generator</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .icon-preview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .icon-item {
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      max-width: 100%;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .instructions {
+      background: #f0f0f0;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Aivo Learning - PWA Icon Generator</h1>
+  
+  <div class="instructions">
+    <h3>Instructions:</h3>
+    <ol>
+      <li>Click "Generate Icons" to create placeholder icons</li>
+      <li>Click "Download All" to save all icons</li>
+      <li>Place the downloaded icons in <code>apps/learner-app/public/</code></li>
+    </ol>
+    <p><strong>Note:</strong> These are placeholder icons. Replace them with professionally designed icons for production.</p>
+  </div>
+
+  <button onclick="generateIcons()">Generate Icons</button>
+  <button onclick="downloadAll()">Download All</button>
+
+  <div id="preview" class="icon-preview"></div>
+
+  <script>
+    const icons = [
+      { name: 'icon-192.png', size: 192, maskable: false },
+      { name: 'icon-512.png', size: 512, maskable: false },
+      { name: 'icon-maskable-192.png', size: 192, maskable: true },
+      { name: 'icon-maskable-512.png', size: 512, maskable: true },
+    ];
+
+    let canvases = [];
+
+    function generateIcons() {
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '';
+      canvases = [];
+
+      icons.forEach(icon => {
+        const canvas = document.createElement('canvas');
+        canvas.width = icon.size;
+        canvas.height = icon.size;
+        const ctx = canvas.getContext('2d');
+
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, icon.size, icon.size);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, icon.size, icon.size);
+
+        // Add safe zone for maskable icons
+        const padding = icon.maskable ? icon.size * 0.2 : 0;
+        const contentSize = icon.size - (padding * 2);
+
+        // Draw "A" letter
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${contentSize * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('A', icon.size / 2, icon.size / 2);
+
+        // Add small "AIVO" text at bottom
+        ctx.font = `${contentSize * 0.15}px Arial`;
+        ctx.fillText('AIVO', icon.size / 2, icon.size * 0.75);
+
+        canvases.push({ canvas, name: icon.name });
+
+        // Add to preview
+        const item = document.createElement('div');
+        item.className = 'icon-item';
+        item.innerHTML = `
+          <canvas id="${icon.name}" width="${icon.size}" height="${icon.size}"></canvas>
+          <p>${icon.name}<br>${icon.size}x${icon.size}</p>
+          <button onclick="downloadIcon('${icon.name}')">Download</button>
+        `;
+        preview.appendChild(item);
+
+        // Copy to preview canvas
+        const previewCanvas = document.getElementById(icon.name);
+        const previewCtx = previewCanvas.getContext('2d');
+        previewCtx.drawImage(canvas, 0, 0, icon.size, icon.size);
+      });
+    }
+
+    function downloadIcon(name) {
+      const item = canvases.find(c => c.name === name);
+      if (!item) return;
+
+      item.canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function downloadAll() {
+      canvases.forEach(item => {
+        setTimeout(() => downloadIcon(item.name), 100);
+      });
+    }
+
+    // Auto-generate on load
+    window.addEventListener('load', generateIcons);
+  </script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# Ignore markdown lint for documentation files with long lines
+# These are informational summaries and don't need strict formatting
+*.md

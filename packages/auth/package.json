@@ -1,0 +1,25 @@
+{
+  "name": "@aivo/auth",
+  "version": "1.0.0",
+  "description": "Shared authentication and authorization system for Aivo Learning",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aivo/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-router-dom": "^6.30.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.6",
+    "typescript": "^5.6.3"
+  }
+}

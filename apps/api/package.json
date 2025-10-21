@@ -1,0 +1,21 @@
+{
+  "name": "@aivo/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.js",
+    "build": "echo 'API build placeholder'",
+    "lint": "eslint . --ext .js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aivo/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@aivo/eslint-config": "workspace:*",
+    "@aivo/typescript-config": "workspace:*",
+    "eslint": "^9.0.0",
+    "typescript": "^5.6.0"
+  }
+}

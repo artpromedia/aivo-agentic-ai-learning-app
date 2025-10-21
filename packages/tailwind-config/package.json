@@ -1,0 +1,10 @@
+{
+  "name": "@aivo/tailwind-config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "peerDependencies": {
+    "tailwindcss": "*"
+  }
+}

@@ -1,0 +1,1 @@
+export { SensoryProfileSetup } from './SensoryProfileSetup';

@@ -1,0 +1,18 @@
+{
+  "tailwindCSS.experimental.configFile": {
+    "apps/web": "apps/web/tailwind.config.cjs",
+    "apps/parent-portal": "apps/parent-portal/tailwind.config.cjs",
+    "apps/teacher-portal": "apps/teacher-portal/tailwind.config.cjs",
+    "apps/learner-app": "apps/learner-app/tailwind.config.cjs"
+  },
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "typescriptreact": "javascript"
+  },
+  "tailwindCSS.classAttributes": [
+    "class",
+    "className",
+    "ngClass"
+  ],
+  "css.lint.unknownAtRules": "ignore"
+}
