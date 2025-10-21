@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from '@aivo/auth';
 import { ThemeProvider, LearnerErrorBoundary } from '@aivo/ui';
 import Login from './pages/Login';
@@ -127,7 +127,7 @@ function App() {
       <AuthProvider apiBaseUrl={import.meta.env.VITE_API_URL || '/api'}>
           <ThemeProvider defaultTheme="MS" persistTheme>
           <GradeBasedThemeSync />
-          <BrowserRouter>
+          <HashRouter>
           <RouteTestWrapper>
           <ConnectivityBanner />
           <Routes>
@@ -239,7 +239,7 @@ function App() {
         {/* Global PWA Components */}
         <OfflineIndicator />
         <PWAInstallPrompt />
-      </BrowserRouter>
+      </HashRouter>
       </ThemeProvider>
     </AuthProvider>
     </LearnerErrorBoundary>

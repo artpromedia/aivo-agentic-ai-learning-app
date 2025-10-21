@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 interface RouteTestWrapperProps {
@@ -11,24 +11,48 @@ interface RouteTestWrapperProps {
  */
 export function RouteTestWrapper({ children }: RouteTestWrapperProps) {
   const location = useLocation();
+  const [testId, setTestId] = useState<'route-ok' | 'route-404'>('route-ok');
   
   // Check if this is a 404 by looking for the route in the registry
   useEffect(() => {
     const routes = (window as Window & { __ROUTES?: unknown[] }).__ROUTES || [];
     const currentPath = location.pathname;
+    
+    // Public routes that should always be ok
+    const publicRoutes = ['/login', '/unauthorized'];
+    if (publicRoutes.includes(currentPath)) {
+      setTestId('route-ok');
+      return;
+    }
+    
     const routeExists = routes.some((r: { path?: string }) => {
       if (!r.path) return false;
-      // Simple path matching - more sophisticated matching could be added
+      
+      // Exact match
       if (r.path === currentPath) return true;
-      const pathBase = r.path.split(':')[0];
-      if (r.path.includes(':') && pathBase && currentPath.startsWith(pathBase)) return true;
+      
+      // Dynamic route matching (e.g., /path/:id)
+      if (r.path.includes(':')) {
+        const pathParts = r.path.split('/');
+        const currentParts = currentPath.split('/');
+        
+        if (pathParts.length !== currentParts.length) return false;
+        
+        return pathParts.every((part, i) => {
+          return part.startsWith(':') || part === currentParts[i];
+        });
+      }
+      
       return false;
     });
     
-    // Add test ID to body for e2e tests
-    const testId = routeExists || currentPath === '/login' || currentPath === '/unauthorized' ? 'route-ok' : 'route-404';
-    document.body.setAttribute('data-testid', testId);
+    setTestId(routeExists ? 'route-ok' : 'route-404');
   }, [location]);
   
-  return <>{children}</>;
+  // Return wrapper with test ID - invisible but queryable
+  return (
+    <div data-testid={testId} style={{ display: 'contents' }}>
+      {children}
+    </div>
+  );
 }
