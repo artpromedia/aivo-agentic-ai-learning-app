@@ -307,7 +307,7 @@ Timestamp: ${new Date().toISOString()}
 export const LearnerErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <ErrorBoundary
-      fallback={(error, errorInfo, reset) => (
+      fallback={(_error, _errorInfo, reset) => (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-purple-50 p-4">
           <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
             <div className="text-6xl mb-4">😕</div>

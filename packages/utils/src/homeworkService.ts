@@ -85,7 +85,7 @@ export class HomeworkService {
   /**
    * Upload file and prepare for OCR processing
    */
-  private async uploadFile(sessionId: string, file: File): Promise<HomeworkFile> {
+  private async uploadFile(_sessionId: string, file: File): Promise<HomeworkFile> {
     // In production, upload to S3/cloud storage
     const fileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     

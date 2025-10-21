@@ -50,6 +50,7 @@ export function useRBAC() {
   // Check if user has any of the required roles
   const hasAnyRole = useCallback((requiredRoles?: Role[]): boolean => {
     if (!requiredRoles || requiredRoles.length === 0) return true;
+    if (!currentUser) return false;
     
     // Global admin has access to everything
     if (currentUser.roles.includes('global_admin')) return true;
@@ -59,12 +60,14 @@ export function useRBAC() {
 
   // Check if user has ALL required roles
   const hasAllRoles = useCallback((requiredRoles: Role[]): boolean => {
+    if (!currentUser) return false;
     if (currentUser.roles.includes('global_admin')) return true;
     return requiredRoles.every(role => currentUser.roles.includes(role));
   }, [currentUser]);
 
   // Check if user has specific permission
   const hasPermission = useCallback((permission: string): boolean => {
+    if (!currentUser) return false;
     // Global admin has all permissions
     if (currentUser.roles.includes('global_admin')) return true;
 
@@ -77,6 +80,7 @@ export function useRBAC() {
 
   // Check if user can access based on hierarchy
   const canAccessRole = useCallback((targetRole: Role): boolean => {
+    if (!currentUser) return false;
     // Global admin can access everything
     if (currentUser.roles.includes('global_admin')) return true;
 
@@ -127,7 +131,7 @@ export function useRBAC() {
     if (userId === currentUserId) {
       const remaining = users.filter(u => u.id !== userId);
       if (remaining.length > 0) {
-        setCurrentUserId(remaining[0].id);
+        setCurrentUserId(remaining[0]?.id || '');
       }
     }
   }, [currentUserId, users]);
@@ -184,7 +188,7 @@ export function useRBAC() {
   const resetToDefaults = useCallback(() => {
     const defaultUsers = getDefaultUsers();
     setUsers(defaultUsers);
-    setCurrentUserId(defaultUsers[0].id);
+    setCurrentUserId(defaultUsers[0]?.id || '');
     console.log('🔄 Reset to default users');
   }, []);
 
