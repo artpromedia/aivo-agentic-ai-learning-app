@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ChangeEvent } from 'react';
+import { useState } from 'react';
 
 export function Devices() {
   const [devices] = useState([

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ChangeEvent } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export function Onboarding() {

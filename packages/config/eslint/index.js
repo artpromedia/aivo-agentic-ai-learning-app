@@ -16,6 +16,7 @@ export default [
       '**/vite.config.*',
       '**/playwright.config.*',
       '**/vitest.config.*',
+      '**/generate-pwa-icons.js',
     ]
   },
   js.configs.recommended,

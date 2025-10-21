@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { useTheme } from '@aivo/ui';
 
 interface FocusMetrics {
@@ -21,7 +21,7 @@ interface FocusMonitorProps {
   onMetricsUpdate?: (metrics: FocusMetrics) => void;
 }
 
-export const FocusMonitor: React.FC<FocusMonitorProps> = ({
+export const FocusMonitor: FC<FocusMonitorProps> = ({
   learnerId: _learnerId,
   subjectId: _subjectId,
   theme: _theme,
@@ -85,8 +85,8 @@ export const FocusMonitor: React.FC<FocusMonitorProps> = ({
 
   // Track user activity
   useEffect(() => {
-    let idleTimer: NodeJS.Timeout;
-    let taskTimer: NodeJS.Timeout;
+    let idleTimer: ReturnType<typeof setTimeout>;
+    let taskTimer: ReturnType<typeof setTimeout>;
 
     const resetIdle = () => {
       setMetrics(prev => ({

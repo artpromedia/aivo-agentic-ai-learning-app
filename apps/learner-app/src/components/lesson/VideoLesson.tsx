@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { useTheme } from '@aivo/ui';
 
 interface VideoLessonProps {
@@ -18,7 +18,7 @@ export function VideoLesson({
   const [showCaptions, setShowCaptions] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const videoRef = useRef<HTMLDivElement>(null);
-  const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const duration = '5:30';
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export function VideoLesson({
     setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = (e: ChangeEvent<HTMLInputElement>) => {
     setCurrentTime(Number(e.target.value));
   };
 

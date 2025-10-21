@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth, changePassword, validatePasswordStrength, setup2FA, enable2FA, TokenManager } from '@aivo/auth';
-import type { TwoFactorSetup } from '@aivo/auth';
+import type { TwoFactorSetup as TwoFactorSetupData } from '@aivo/auth';
 
 type SettingsTab = 'general' | 'security' | 'notifications' | 'preferences';
 
@@ -60,7 +60,7 @@ function GeneralSettings() {
     timeFormat: '12h',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     // Save settings
     console.log('General settings saved:', formData);
@@ -272,7 +272,7 @@ function PasswordChangeForm({ onCancel }: { onCancel: () => void }) {
 
   const passwordStrength = validatePasswordStrength(formData.newPassword);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -403,7 +403,7 @@ function PasswordChangeForm({ onCancel }: { onCancel: () => void }) {
 function TwoFactorSetup({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) {
   const { tokens } = useAuth();
   const [step, setStep] = useState<'setup' | 'verify'>(TokenManager.getTokens() ? 'setup' : 'verify');
-  const [setupData, setSetupData] = useState<TwoFactorSetup | null>(null);
+  const [setupData, setSetupData] = useState<TwoFactorSetupData | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -428,7 +428,7 @@ function TwoFactorSetup({ onComplete, onCancel }: { onComplete: () => void; onCa
     }
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleVerify = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');

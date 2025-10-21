@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth, changePassword, validatePasswordStrength, setup2FA, enable2FA, TokenManager } from '@aivo/auth';
 import type { TwoFactorSetup as TwoFactorSetupData } from '@aivo/auth';
 

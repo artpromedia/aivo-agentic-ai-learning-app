@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth, changePassword, validatePasswordStrength, setup2FA, enable2FA, TokenManager } from '@aivo/auth';
-import type { TwoFactorSetup } from '@aivo/auth';
+import type { TwoFactorSetup as TwoFactorSetupData } from '@aivo/auth';
 
 type SettingsTab = 'general' | 'security' | 'notifications' | 'preferences';
 
@@ -403,7 +403,7 @@ function PasswordChangeForm({ onCancel }: { onCancel: () => void }) {
 function TwoFactorSetup({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) {
   const { tokens } = useAuth();
   const [step, setStep] = useState<'setup' | 'verify'>(TokenManager.getTokens() ? 'setup' : 'verify');
-  const [setupData, setSetupData] = useState<TwoFactorSetup | null>(null);
+  const [setupData, setSetupData] = useState<TwoFactorSetupData | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
