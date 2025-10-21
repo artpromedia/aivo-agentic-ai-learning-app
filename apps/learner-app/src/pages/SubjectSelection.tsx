@@ -64,19 +64,36 @@ export function SubjectSelection() {
               Choose a subject to get started!
             </p>
           </div>
-          <button
-            onClick={handleExit}
-            className="bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110 active:scale-95 transition-all"
-            style={{
-              width: themeConfig.iconSize.subject,
-              height: themeConfig.iconSize.subject,
-              fontSize: `calc(${themeConfig.iconSize.subject} * 0.5)`,
-              transitionDuration: `${themeConfig.animations.duration}ms`,
-            }}
-            aria-label="Exit"
-          >
-            🚪
-          </button>
+          <div className="flex gap-4 items-center">
+            {/* Homework Helper Button */}
+            <button
+              onClick={() => navigate('/homework-helper')}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold"
+              style={{
+                fontSize: themeConfig.fontSize.base,
+                transitionDuration: `${themeConfig.animations.duration}ms`,
+              }}
+              aria-label="Homework Helper"
+            >
+              <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>📝</span>
+              <span>Homework Helper</span>
+            </button>
+            
+            {/* Exit Button */}
+            <button
+              onClick={handleExit}
+              className="bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-110 active:scale-95 transition-all"
+              style={{
+                width: themeConfig.iconSize.subject,
+                height: themeConfig.iconSize.subject,
+                fontSize: `calc(${themeConfig.iconSize.subject} * 0.5)`,
+                transitionDuration: `${themeConfig.animations.duration}ms`,
+              }}
+              aria-label="Exit"
+            >
+              🚪
+            </button>
+          </div>
         </div>
       </div>
 
