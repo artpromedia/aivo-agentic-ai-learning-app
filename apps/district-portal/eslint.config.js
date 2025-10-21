@@ -1,3 +1,3 @@
-import baseConfig from '@aivo/config/eslint/react-internal.js';
+import config from '@aivo/eslint-config';
 
-export default [...baseConfig];
+export default config;

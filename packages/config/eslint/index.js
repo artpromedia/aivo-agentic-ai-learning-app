@@ -6,6 +6,18 @@ import tsParser from '@typescript-eslint/parser';
 import globals from 'globals';
 
 export default [
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/.turbo/**',
+      '**/coverage/**',
+      '**/vite.config.*',
+      '**/playwright.config.*',
+      '**/vitest.config.*',
+    ]
+  },
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

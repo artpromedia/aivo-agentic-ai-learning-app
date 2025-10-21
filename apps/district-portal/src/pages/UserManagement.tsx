@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { getUsers, DistrictUser, getSchools } from '../utils/mockData';
 
 export default function UserManagement() {
@@ -43,7 +43,7 @@ export default function UserManagement() {
     admins: users.filter(u => u.role === 'district-admin' || u.role === 'school-admin').length,
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = (e: FormEvent) => {
     e.preventDefault();
     
     const school = schools.find(s => s.id === newUser.schoolId);

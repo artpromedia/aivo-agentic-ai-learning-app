@@ -23,6 +23,9 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@aivo/eslint-config": "workspace:*",
+    "@aivo/tailwind-config": "workspace:*",
+    "@aivo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.14",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

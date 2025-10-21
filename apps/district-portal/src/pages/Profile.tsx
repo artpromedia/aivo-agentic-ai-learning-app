@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { useAuth } from '@aivo/auth';
 
 export default function Profile() {
@@ -10,7 +10,7 @@ export default function Profile() {
     avatar: user?.avatar || '',
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       updateUser(formData);
@@ -22,7 +22,7 @@ export default function Profile() {
     }
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // In production, upload to server and get URL

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, type FormEvent, type ChangeEvent } from 'react';
 
 export function Progress() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'all'>('week');

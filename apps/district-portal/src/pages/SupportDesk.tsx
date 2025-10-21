@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { getSupportTickets } from '../utils/mockData';
 
 export default function SupportDesk() {
@@ -23,7 +23,7 @@ export default function SupportDesk() {
     resolved: tickets.filter((t) => t.status === 'resolved').length,
   };
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
+  const handleSubmitTicket = (e: FormEvent) => {
     e.preventDefault();
     
     const ticket = {

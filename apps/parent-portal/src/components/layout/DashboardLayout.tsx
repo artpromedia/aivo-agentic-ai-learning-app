@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { UserMenu } from './UserMenu';
 
 export function DashboardLayout() {
