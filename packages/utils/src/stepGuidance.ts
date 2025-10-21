@@ -188,7 +188,7 @@ export function getNextStep(currentStep: HomeworkStep): HomeworkStep | null {
     return null; // No next step
   }
   
-  return stepOrder[currentIndex + 1];
+  return stepOrder[currentIndex + 1] ?? null;
 }
 
 /**
@@ -202,7 +202,7 @@ export function getPreviousStep(currentStep: HomeworkStep): HomeworkStep | null 
     return null; // No previous step
   }
   
-  return stepOrder[currentIndex - 1];
+  return stepOrder[currentIndex - 1] ?? null;
 }
 
 /**
@@ -230,6 +230,9 @@ export function isStepAccessible(
   
   // Check if previous step is completed
   const previousStep = stepOrder[targetIndex - 1];
+  if (!previousStep) {
+    return false;
+  }
   return completedSteps.includes(previousStep);
 }
 

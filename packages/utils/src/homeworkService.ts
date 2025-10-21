@@ -329,7 +329,7 @@ export class HomeworkService {
           ...sessions[index],
           ...updates,
           updatedAt: new Date(),
-        };
+        } as HomeworkSession;
         localStorage.setItem('homework_sessions', JSON.stringify(sessions));
       }
     } catch (error) {
@@ -390,7 +390,11 @@ export class HomeworkService {
     };
 
     const stepHints = hints[session.currentStep];
-    const hint = stepHints[session.hintsGiven % stepHints.length];
+    if (!stepHints) {
+      return 'Try breaking down the problem step by step.';
+    }
+    
+    const hint = stepHints[session.hintsGiven % stepHints.length] ?? 'Try breaking down the problem step by step.';
 
     this.updateSession(sessionId, {
       hintsGiven: session.hintsGiven + 1,

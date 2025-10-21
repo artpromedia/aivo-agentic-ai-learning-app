@@ -339,7 +339,7 @@ export class SelfRegulationService {
    */
   getCurrentEmotion(learnerId: string): EmotionState | null {
     const history = this.getEmotionHistory(learnerId);
-    return history.length > 0 ? history[history.length - 1] : null;
+    return history.length > 0 ? (history[history.length - 1] ?? null) : null;
   }
 
   /**
@@ -381,7 +381,7 @@ export class SelfRegulationService {
         emotionAfter,
         completed: true,
         notes,
-      };
+      } as RegulationSession;
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
 
@@ -485,8 +485,18 @@ export class SelfRegulationService {
     recentEmotions.forEach(e => {
       emotionCounts[e.emotion] = (emotionCounts[e.emotion] || 0) + 1;
     });
-    const mostCommon = Object.entries(emotionCounts)
-      .sort(([, a], [, b]) => b - a)[0][0] as EmotionState['emotion'];
+    const sortedEmotions = Object.entries(emotionCounts)
+      .sort(([, a], [, b]) => b - a);
+    const mostCommon = sortedEmotions[0]?.[0] as EmotionState['emotion'] | undefined;
+    
+    if (!mostCommon) {
+      return {
+        mostCommon: 'calm',
+        averageLevel: 0,
+        totalCheckIns: 0,
+        improvements: 0,
+      };
+    }
 
     // Average level
     const averageLevel = recentEmotions.reduce((sum, e) => sum + e.level, 0) / recentEmotions.length;
