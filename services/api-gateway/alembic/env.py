@@ -1,6 +1,5 @@
 from logging.config import fileConfig
 import sys
-import os
 from pathlib import Path
 
 from sqlalchemy import engine_from_config
@@ -11,12 +10,13 @@ from alembic import context
 # Add parent directory to path to import app modules
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# Import settings and Base
-from app.core.config import get_settings
-from app.core.database import Base
+# Import settings and Base (must be after path modification)
+from app.core.config import get_settings  # noqa: E402
+from app.core.database import Base  # noqa: E402
 
 # Import all models to ensure they're registered with SQLAlchemy
-from app.models import (
+# (must be after path modification)
+from app.models import (  # noqa: E402, F401
     User,
     Learner,
     HomeworkSession,

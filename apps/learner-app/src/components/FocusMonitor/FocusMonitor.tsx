@@ -49,8 +49,13 @@ export const FocusMonitor: FC<FocusMonitorProps> = ({
 
   // Expose methods for parent components to update metrics
   useEffect(() => {
-    if (window) {
-      (window as any).updateFocusMetrics = {
+    if (typeof window !== 'undefined') {
+      interface UpdateFocusMetrics {
+        recordAnswer: (correct: boolean) => void;
+        recordDistraction: () => void;
+      }
+
+      const updateFocusMetrics: UpdateFocusMetrics = {
         recordAnswer: (correct: boolean) => {
           setMetrics(prev => {
             const newMetrics = {
@@ -74,11 +79,14 @@ export const FocusMonitor: FC<FocusMonitorProps> = ({
           });
         },
       };
+
+      // Extend window interface for TypeScript
+      (window as Window & { updateFocusMetrics?: UpdateFocusMetrics }).updateFocusMetrics = updateFocusMetrics;
     }
 
     return () => {
-      if (window) {
-        delete (window as any).updateFocusMetrics;
+      if (typeof window !== 'undefined') {
+        delete (window as Window & { updateFocusMetrics?: unknown }).updateFocusMetrics;
       }
     };
   }, [onMetricsUpdate]);
@@ -194,7 +202,7 @@ export const FocusMonitor: FC<FocusMonitorProps> = ({
     };
 
     calculateFocusState();
-  }, [metrics.idleTime, metrics.correctAnswersStreak, metrics.distractionEvents, metrics.timeOnTask, canTakeBreak]);
+  }, [metrics.idleTime, metrics.correctAnswersStreak, metrics.distractionEvents, metrics.timeOnTask, canTakeBreak, onMetricsUpdate, showSuggestion]);
 
   const handleStartBreak = () => {
     setShowSuggestion(false);
