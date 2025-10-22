@@ -1,6 +1,6 @@
 """AI service for homework assistance."""
 import logging
-from typing import Dict, Optional
+from typing import Dict
 
 from app.models.homework import HomeworkSession, HomeworkStep
 
@@ -9,20 +9,22 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     """Service for AI-powered homework assistance."""
-    
+
     async def generate_hint(
         self,
         session: HomeworkSession,
-        student_question: Optional[str] = None
+        student_question: str | None = None  # pylint: disable=unused-argument
     ) -> str:
         """Generate adaptive hint for current step."""
-        
+
         step = session.current_step
-        
-        hints = {
+
+        # SQLAlchemy Column compatibility
+        hints_map: dict = {
             HomeworkStep.UNDERSTAND: (
                 "Let's read the problem carefully. "
-                "What information do we have? What are we trying to find?"
+                "What information do we have? "
+                "What are we trying to find?"
             ),
             HomeworkStep.PLAN: (
                 "Think about what strategy might work here. "
@@ -37,21 +39,26 @@ class AIService:
                 "Can you check it a different way?"
             )
         }
-        
-        hint = hints.get(step, "Keep working through the problem step by step!")
-        
-        logger.info(f"Generated hint for session {session.id} at step {step}")
-        
-        return hint
-    
+        hint_text: str = hints_map.get(
+            step,
+            "Keep working through the problem step by step!"
+        )
+
+        logger.info(
+            "Generated hint for session %s at step %s",
+            session.id, step
+        )
+
+        return hint_text
+
     async def generate_explanation(
         self,
         session: HomeworkSession,
         step: HomeworkStep,
-        specific_question: Optional[str] = None
+        specific_question: str | None = None  # pylint: disable=unused-argument
     ) -> Dict:
         """Generate detailed explanation for a step or concept."""
-        
+
         explanation = {
             "text": (
                 f"Let me explain the '{step.value}' step. "
@@ -66,10 +73,10 @@ class AIService:
                 }
             ]
         }
-        
+
         logger.info(
-            f"Generated explanation for session {session.id} "
-            f"at step {step}"
+            "Generated explanation for session %s at step %s",
+            session.id, step
         )
-        
+
         return explanation
