@@ -137,13 +137,13 @@ class AnalyticsService:
         # Calculate streak
         streak = 0
         current_date = end_date
-        
+
         while current_date >= start_date:
             day_metric = next(
                 (dm for dm in daily_metrics if dm.date == current_date),
                 None
             )
-            
+
             if day_metric and day_metric.total_sessions > 0:
                 streak += 1
                 current_date -= timedelta(days=1)
@@ -217,7 +217,7 @@ class AnalyticsService:
         if len(scores) >= 2:
             recent_avg = sum(scores[-5:]) / len(scores[-5:])
             older_avg = sum(scores[:5]) / min(5, len(scores[:5]))
-            
+
             if recent_avg > older_avg + 5:
                 trend = "improving"
             elif recent_avg < older_avg - 5:
@@ -294,10 +294,10 @@ class AnalyticsService:
 
         # Group by subject
         subjects: Dict[str, Dict[str, Any]] = {}
-        
+
         for record in progress_records:
             subject_name = str(record.subject) if record.subject else "Other"
-            
+
             if subject_name not in subjects:
                 subjects[subject_name] = {
                     "subject": subject_name,
@@ -307,27 +307,27 @@ class AnalyticsService:
                     "time_spent_minutes": 0,
                     "recent_topics": []
                 }
-            
+
             subjects[subject_name]["activities_completed"] += 1
-            
+
             if record.score is not None:
                 subjects[subject_name]["total_score"] += record.score
                 subjects[subject_name]["scored_activities"] += 1
-            
+
             if record.time_spent_seconds:
                 time_mins = record.time_spent_seconds // 60
                 subjects[subject_name]["time_spent_minutes"] += time_mins
 
         # Format results
         result = []
-        
+
         for subject_data in subjects.values():
             avg_score = (
                 subject_data["total_score"] / subject_data["scored_activities"]
                 if subject_data["scored_activities"] > 0
                 else 0.0
             )
-            
+
             # Determine mastery level
             if avg_score >= 90:
                 mastery = "advanced"
@@ -337,7 +337,7 @@ class AnalyticsService:
                 mastery = "developing"
             else:
                 mastery = "beginner"
-            
+
             result.append({
                 "subject": subject_data["subject"],
                 "activities_completed": subject_data["activities_completed"],
@@ -348,7 +348,7 @@ class AnalyticsService:
                 "areas_for_growth": [],
                 "recent_topics": []
             })
-        
+
         return result
 
     def _calculate_focus(
@@ -565,7 +565,7 @@ class AnalyticsService:
         # In production, this would generate actual PDF/CSV/JSON
         # For now, return a placeholder URL
         _ = sections  # Placeholder for future use
-        
+
         filename = (
             f"analytics_{learner_id}_{start_date}_"
             f"{end_date}.{export_format}"

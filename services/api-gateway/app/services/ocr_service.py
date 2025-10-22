@@ -50,7 +50,7 @@ class OCRService:
                 return
 
             # Update status
-            file_record.ocr_status = "processing"
+            file_record.ocr_status = "processing"  # type: ignore[assignment]
             db.commit()
 
             # Perform OCR based on engine
@@ -64,7 +64,7 @@ class OCRService:
                 raise ValueError(f"Unknown OCR engine: {self.engine}")
 
             # Update record
-            file_record.ocr_status = "completed"
+            file_record.ocr_status = "completed"  # type: ignore[assignment]
             file_record.extracted_text = result["text"]
             file_record.ocr_confidence = result["confidence"]
 
@@ -77,7 +77,7 @@ class OCRService:
 
             # Update status
             if file_record:
-                file_record.ocr_status = "failed"
+                file_record.ocr_status = "failed"  # type: ignore[assignment]
                 db.commit()
 
         finally:

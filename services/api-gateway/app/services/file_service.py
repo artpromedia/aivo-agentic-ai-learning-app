@@ -1,6 +1,5 @@
 """File service for upload and storage operations."""
 import logging
-import os
 import uuid
 from pathlib import Path
 from typing import Dict, Optional
