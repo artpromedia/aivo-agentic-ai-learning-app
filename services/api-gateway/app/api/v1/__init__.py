@@ -2,6 +2,7 @@
 API v1 Router
 """
 from fastapi import APIRouter
+from app.api.v1 import auth
 from app.api.v1.endpoints import (
     health,
     users,
@@ -13,6 +14,9 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+
+# Include authentication router (no prefix, already has /auth)
+api_router.include_router(auth.router)
 
 # Include endpoint routers
 api_router.include_router(health.router, prefix="/health", tags=["health"])
