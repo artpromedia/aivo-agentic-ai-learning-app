@@ -112,7 +112,7 @@ __all__ = [
     "success_response",
     "error_response",
     "paginated_response",
-    
+
     # User
     "UserBase",
     "UserCreate",
@@ -121,13 +121,13 @@ __all__ = [
     "TokenResponse",
     "LoginRequest",
     "RefreshTokenRequest",
-    
+
     # Learner
     "LearnerBase",
     "LearnerCreate",
     "LearnerUpdate",
     "LearnerResponse",
-    
+
     # Homework
     "HomeworkStatus",
     "HomeworkStep",
@@ -139,7 +139,7 @@ __all__ = [
     "HintResponse",
     "ExplanationRequest",
     "ExplanationResponse",
-    
+
     # Sensory Profile
     "VisualSettings",
     "AuditorySettings",
@@ -151,7 +151,7 @@ __all__ = [
     "SensoryProfileCreate",
     "SensoryProfileUpdate",
     "SensoryProfileResponse",
-    
+
     # Regulation & Emotions
     "EmotionType",
     "ActivityType",
@@ -162,7 +162,7 @@ __all__ = [
     "RegulationSessionResponse",
     "EmotionCheckIn",
     "ActivityRecommendation",
-    
+
     # IEP
     "IEPGoalStatus",
     "IEPGoalCreate",
@@ -170,7 +170,7 @@ __all__ = [
     "IEPGoalResponse",
     "IEPDataPointCreate",
     "IEPDataPointResponse",
-    
+
     # Analytics
     "DateRangeFilter",
     "EngagementMetrics",
@@ -185,13 +185,13 @@ __all__ = [
     "AnalyticsExportRequest",
     "DailyMetricsResponse",
     "SubjectMetricsResponse",
-    
+
     # Progress
     "ProgressRecordBase",
     "ProgressRecordCreate",
     "ProgressRecordUpdate",
     "ProgressRecordResponse",
-    
+
     # AI Providers
     "AIProviderBase",
     "AIProviderCreate",

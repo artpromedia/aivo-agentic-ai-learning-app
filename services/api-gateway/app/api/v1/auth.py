@@ -1,10 +1,12 @@
 ﻿"""
 Authentication endpoints for user registration, login, and token management.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from datetime import timedelta
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+# pylint: disable=import-error
 from app.core.database import get_db
 from app.core.security import (
     verify_password,
@@ -99,19 +101,19 @@ async def register(
 
     # Create tokens
     access_token = create_access_token(subject=new_user.id)
-    refresh_token = create_refresh_token(subject=new_user.id)
+    new_refresh_token = create_refresh_token(subject=new_user.id)
 
     return success_response(
         data={
             "user": UserResponse.model_validate(new_user).model_dump(),
             "tokens": {
                 "access_token": access_token,
-                "refresh_token": refresh_token,
+                "refresh_token": new_refresh_token,
                 "token_type": "bearer",
                 "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            }
-        },
-        message="User registered successfully"
+            },
+            "message": "User registered successfully"
+        }
     )
 
 
@@ -149,7 +151,7 @@ async def login(
 
     if not user or not verify_password(
         credentials.password,
-        user.hashed_password
+        str(user.hashed_password)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -165,19 +167,19 @@ async def login(
 
     # Create tokens
     access_token = create_access_token(subject=user.id)
-    refresh_token = create_refresh_token(subject=user.id)
+    new_refresh_token = create_refresh_token(subject=user.id)
 
     return success_response(
         data={
             "user": UserResponse.model_validate(user).model_dump(),
             "tokens": {
                 "access_token": access_token,
-                "refresh_token": refresh_token,
+                "refresh_token": new_refresh_token,
                 "token_type": "bearer",
                 "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            }
-        },
-        message="Login successful"
+            },
+            "message": "Login successful"
+        }
     )
 
 
@@ -237,16 +239,16 @@ async def refresh_token(
                 "access_token": access_token,
                 "refresh_token": new_refresh_token,
                 "token_type": "bearer",
-                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            },
-            message="Token refreshed successfully"
+                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                "message": "Token refreshed successfully"
+            }
         )
 
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token"
-        )
+        ) from exc
 
 
 @router.get("/me", response_model=dict)
@@ -280,6 +282,7 @@ async def get_current_user_info(
 
 @router.post("/logout", response_model=dict)
 async def logout(
+    # pylint: disable=unused-argument
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -347,7 +350,7 @@ async def change_password(
         - **new_password**: New password (must meet strength requirements)
     """
     # Verify old password
-    if not verify_password(old_password, current_user.hashed_password):
+    if not verify_password(old_password, str(current_user.hashed_password)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect current password"
@@ -369,7 +372,8 @@ async def change_password(
         )
 
     # Update password
-    current_user.hashed_password = get_password_hash(new_password)
+    hashed_pwd = get_password_hash(new_password)
+    current_user.hashed_password = hashed_pwd  # type: ignore
     db.commit()
 
     return success_response(
@@ -416,7 +420,7 @@ async def forgot_password(
             expires_delta=timedelta(hours=1)
         )
 
-        # TODO: Send email with reset link
+        # TODO: Send email with reset link  # pylint: disable=fixme
         # In production, integrate with email service:
         # reset_link = (
         #     f"{settings.FRONTEND_URL}/reset-password"
@@ -430,7 +434,6 @@ async def forgot_password(
 
         # For development, you could log the token
         # print(f"Password reset token for {email}: {_reset_token}")
-        pass
 
     return success_response(
         data={
@@ -494,7 +497,8 @@ async def reset_password(
             )
 
         # Update password
-        user.hashed_password = get_password_hash(new_password)
+        hashed_pw = get_password_hash(new_password)
+        user.hashed_password = hashed_pw  # type: ignore
         db.commit()
 
         return success_response(
@@ -503,11 +507,11 @@ async def reset_password(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token"
-        )
+        ) from exc
 
 
 @router.post("/verify-email", response_model=dict)
@@ -554,7 +558,7 @@ async def verify_email(
             )
 
         # Mark email as verified
-        user.is_verified = True
+        user.is_verified = True  # type: ignore
         db.commit()
 
         return success_response(
@@ -563,14 +567,15 @@ async def verify_email(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired verification token"
-        )
+        ) from exc
 
 
 @router.post("/resend-verification", response_model=dict)
+# pylint: disable=unused-argument
 async def resend_verification_email(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -608,7 +613,7 @@ async def resend_verification_email(
         expires_delta=timedelta(days=7)
     )
 
-    # TODO: Send verification email
+    # TODO: Send verification email  # pylint: disable=fixme
     # In production:
     # verify_link = (
     #     f"{settings.FRONTEND_URL}/verify-email"
