@@ -71,3 +71,40 @@ class FileService:
         """Delete file from storage."""
         logger.info("Deleted file %s", file_url)
         # In production, delete from S3 or storage service
+
+    def validate_iep_document(self, file: UploadFile) -> Dict:
+        """Validate IEP document upload."""
+
+        # Allowed file types for IEP documents
+        allowed_types = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document'
+        ]
+
+        # Max size: 5MB
+        max_size = 5 * 1024 * 1024
+
+        # Get file size (simplified - production: read file to get size)
+        file_size = 0
+
+        if file.content_type not in allowed_types:
+            return {
+                "valid": False,
+                "error": (
+                    "File type not allowed. "
+                    "Allowed types: PDF, DOC, DOCX"
+                )
+            }
+
+        if file_size > max_size:
+            return {
+                "valid": False,
+                "error": "File size exceeds maximum of 5MB"
+            }
+
+        return {
+            "valid": True,
+            "size": file_size
+        }

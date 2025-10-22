@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (  # pylint: disable=import-error
     progress,
     sensory,
     regulation,
+    analytics,
 )
 
 api_router = APIRouter()
@@ -39,4 +40,7 @@ api_router.include_router(
 )
 api_router.include_router(
     regulation.router, prefix="/regulation", tags=["regulation"]
+)
+api_router.include_router(
+    analytics.router, prefix="/analytics", tags=["analytics"]
 )

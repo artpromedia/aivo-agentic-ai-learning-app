@@ -124,13 +124,11 @@ class ExportFormat(str, Enum):
 
 class AnalyticsExportRequest(BaseModel):
     """Schema for analytics export request."""
-    learner_id: str = Field(..., min_length=36, max_length=36)
-    start_date: date
-    end_date: date
+    date_range: DateRangeFilter
     format: ExportFormat
     include_charts: bool = False
     include_recommendations: bool = True
-    sections: Optional[List[str]] = Field(
+    include_sections: Optional[List[str]] = Field(
         None,
         description=(
             "Specific sections to include: engagement, progress, "
