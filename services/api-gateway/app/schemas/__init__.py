@@ -24,47 +24,68 @@ from app.schemas.learner import (
     LearnerResponse,
 )
 from app.schemas.homework import (
-    HomeworkSessionBase,
+    HomeworkStatus,
+    HomeworkStep,
+    HomeworkInputMethod,
+    HomeworkFileUpload,
     HomeworkSessionCreate,
-    HomeworkSessionUpdate,
     HomeworkSessionResponse,
-    HomeworkFileCreate,
-    HomeworkFileResponse,
-    WorkProductCreate,
-    WorkProductResponse,
+    HintRequest,
+    HintResponse,
+    ExplanationRequest,
+    ExplanationResponse,
 )
 from app.schemas.sensory_profile import (
-    SensoryProfileBase,
+    VisualSettings,
+    AuditorySettings,
+    MotorSettings,
+    CognitiveSettings,
+    EnvironmentSettings,
+    TriggerSettings,
+    SensoryPreset,
     SensoryProfileCreate,
     SensoryProfileUpdate,
     SensoryProfileResponse,
 )
 from app.schemas.regulation import (
-    RegulationSessionBase,
+    EmotionType,
+    ActivityType,
+    EmotionState,
+    RegulationActivity,
     RegulationSessionCreate,
-    RegulationSessionUpdate,
+    RegulationSessionComplete,
     RegulationSessionResponse,
-    EmotionHistoryCreate,
-    EmotionHistoryResponse,
+    EmotionCheckIn,
+    ActivityRecommendation,
 )
 from app.schemas.iep import (
-    IEPGoalBase,
+    IEPGoalStatus,
     IEPGoalCreate,
     IEPGoalUpdate,
     IEPGoalResponse,
     IEPDataPointCreate,
     IEPDataPointResponse,
 )
+from app.schemas.analytics import (
+    DateRangeFilter,
+    EngagementMetrics,
+    ProgressMetrics,
+    IEPGoalProgress,
+    SubjectMetrics,
+    FocusMetrics,
+    HomeworkMetrics,
+    AccommodationMetrics,
+    LearnerAnalytics,
+    ExportFormat,
+    AnalyticsExportRequest,
+    DailyMetricsResponse,
+    SubjectMetricsResponse,
+)
 from app.schemas.progress import (
     ProgressRecordBase,
     ProgressRecordCreate,
     ProgressRecordUpdate,
     ProgressRecordResponse,
-)
-from app.schemas.analytics import (
-    DailyMetricsResponse,
-    SubjectMetricsResponse,
-    AnalyticsSummary,
 )
 from app.schemas.ai_provider import (
     AIProviderBase,
@@ -108,47 +129,68 @@ __all__ = [
     "LearnerResponse",
     
     # Homework
-    "HomeworkSessionBase",
+    "HomeworkStatus",
+    "HomeworkStep",
+    "HomeworkInputMethod",
+    "HomeworkFileUpload",
     "HomeworkSessionCreate",
-    "HomeworkSessionUpdate",
     "HomeworkSessionResponse",
-    "HomeworkFileCreate",
-    "HomeworkFileResponse",
-    "WorkProductCreate",
-    "WorkProductResponse",
+    "HintRequest",
+    "HintResponse",
+    "ExplanationRequest",
+    "ExplanationResponse",
     
     # Sensory Profile
-    "SensoryProfileBase",
+    "VisualSettings",
+    "AuditorySettings",
+    "MotorSettings",
+    "CognitiveSettings",
+    "EnvironmentSettings",
+    "TriggerSettings",
+    "SensoryPreset",
     "SensoryProfileCreate",
     "SensoryProfileUpdate",
     "SensoryProfileResponse",
     
     # Regulation & Emotions
-    "RegulationSessionBase",
+    "EmotionType",
+    "ActivityType",
+    "EmotionState",
+    "RegulationActivity",
     "RegulationSessionCreate",
-    "RegulationSessionUpdate",
+    "RegulationSessionComplete",
     "RegulationSessionResponse",
-    "EmotionHistoryCreate",
-    "EmotionHistoryResponse",
+    "EmotionCheckIn",
+    "ActivityRecommendation",
     
     # IEP
-    "IEPGoalBase",
+    "IEPGoalStatus",
     "IEPGoalCreate",
     "IEPGoalUpdate",
     "IEPGoalResponse",
     "IEPDataPointCreate",
     "IEPDataPointResponse",
     
+    # Analytics
+    "DateRangeFilter",
+    "EngagementMetrics",
+    "ProgressMetrics",
+    "IEPGoalProgress",
+    "SubjectMetrics",
+    "FocusMetrics",
+    "HomeworkMetrics",
+    "AccommodationMetrics",
+    "LearnerAnalytics",
+    "ExportFormat",
+    "AnalyticsExportRequest",
+    "DailyMetricsResponse",
+    "SubjectMetricsResponse",
+    
     # Progress
     "ProgressRecordBase",
     "ProgressRecordCreate",
     "ProgressRecordUpdate",
     "ProgressRecordResponse",
-    
-    # Analytics
-    "DailyMetricsResponse",
-    "SubjectMetricsResponse",
-    "AnalyticsSummary",
     
     # AI Providers
     "AIProviderBase",
