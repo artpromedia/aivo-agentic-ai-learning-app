@@ -34,11 +34,39 @@ clean: ## Remove all containers, volumes, and images
 	docker-compose down -v --remove-orphans
 	docker system prune -af
 
-test: ## Run backend tests
+test: ## Run all tests (backend + frontend)
+	@echo "Running backend tests..."
 	docker-compose exec api-gateway pytest
+	@echo "Running frontend tests..."
+	docker-compose exec learner-app pnpm test
+
+test-backend: ## Run backend tests only
+	docker-compose exec api-gateway pytest
+
+test-unit: ## Run backend unit tests only
+	docker-compose exec api-gateway pytest -m unit
+
+test-integration: ## Run backend integration tests only
+	docker-compose exec api-gateway pytest -m integration
+
+test-e2e: ## Run end-to-end tests
+	docker-compose exec api-gateway pytest -m e2e
+
+test-coverage: ## Run tests with coverage report
+	docker-compose exec api-gateway pytest --cov=app --cov-report=html --cov-report=term
 
 test-frontend: ## Run frontend tests
 	docker-compose exec learner-app pnpm test
+
+test-frontend-all: ## Run tests in all frontend apps
+	docker-compose exec web pnpm test
+	docker-compose exec parent-portal pnpm test
+	docker-compose exec teacher-portal pnpm test
+	docker-compose exec learner-app pnpm test
+	docker-compose exec admin-portal pnpm test
+
+test-watch: ## Run backend tests in watch mode
+	docker-compose exec api-gateway pytest -f
 
 migrate: ## Run database migrations
 	docker-compose exec api-gateway alembic upgrade head
@@ -47,7 +75,12 @@ migrate-create: ## Create new migration
 	@read -p "Enter migration message: " msg; \
 	docker-compose exec api-gateway alembic revision --autogenerate -m "$$msg"
 
-seed: ## Seed database with test data
+seed: ## Seed database with test data (Jayden & Jason Ofem)
+	docker-compose exec api-gateway python -m app.seeds.load_data
+
+seed-reset: ## Reset database and reseed
+	docker-compose exec api-gateway alembic downgrade base
+	docker-compose exec api-gateway alembic upgrade head
 	docker-compose exec api-gateway python -m app.seeds.load_data
 
 shell-api: ## Open shell in API container
