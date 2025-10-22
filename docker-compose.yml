@@ -153,6 +153,100 @@ services:
         reservations:
           memory: 2G
 
+  # ========================================
+  # CURRICULUM DATABASE
+  # ========================================
+  curriculum-db:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: aivo-curriculum-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aivo_curriculum
+      POSTGRES_USER: ${DB_USER:-aivo_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aivo_dev_password}
+    volumes:
+      - curriculum_data:/var/lib/postgresql/data
+      - ./services/curriculum-service/models:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    networks:
+      - aivo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-aivo_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========================================
+  # CURRICULUM SERVICE
+  # ========================================
+  curriculum-service:
+    build:
+      context: ./services/curriculum-service
+      dockerfile: Dockerfile
+    container_name: aivo-curriculum-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-aivo_user}:${DB_PASSWORD:-aivo_dev_password}@curriculum-db:5432/aivo_curriculum
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aivo_redis_dev}@redis:6379/3
+    volumes:
+      - ./services/curriculum-service:/app
+      - curriculum_imports:/app/data/imports
+    ports:
+      - "8003:8003"
+    networks:
+      - aivo-network
+    depends_on:
+      curriculum-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+
+  # ========================================
+  # TRAINING SERVICE (for base brain training)
+  # ========================================
+  training-service:
+    build:
+      context: ./services/training-service
+      dockerfile: Dockerfile
+    container_name: aivo-training-service
+    restart: "no"  # Run manually for training
+    env_file:
+      - .env
+    environment:
+      - CURRICULUM_DATABASE_URL=postgresql://${DB_USER:-aivo_user}:${DB_PASSWORD:-aivo_dev_password}@curriculum-db:5432/aivo_curriculum
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MODEL_OUTPUT_PATH=/models
+    volumes:
+      - ./services/training-service:/app
+      - training_models:/models
+      - curriculum_imports:/app/data/curriculum
+    ports:
+      - "8004:8004"
+    networks:
+      - aivo-network
+    depends_on:
+      curriculum-db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 8G
+
 networks:
   aivo-network:
     driver: bridge
@@ -167,3 +261,9 @@ volumes:
     name: aivo-api-uploads
   ai_models:
     name: aivo-ai-models
+  curriculum_data:
+    name: aivo-curriculum-data
+  curriculum_imports:
+    name: aivo-curriculum-imports
+  training_models:
+    name: aivo-training-models

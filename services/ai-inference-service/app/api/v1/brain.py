@@ -17,6 +17,9 @@ from app.models.brain_instance import (
     AdaptationRequest
 )
 from app.core.brain_manager import brain_manager
+from app.services.district_brain_cloner import DistrictBrainCloner
+from app.database import get_curriculum_db
+from typing import Dict, Any
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -397,3 +400,99 @@ async def list_learner_brains(learner_id: str):
             "brains": brains
         }
     }
+
+
+@router.post("/create-district-aware", response_model=dict)
+async def create_district_aware_brain(
+    learner_id: str,
+    learning_profile: LearningProfile,
+    location_data: Dict[str, Any]
+):
+    """
+    Create brain instance with district curriculum context.
+    
+    **Process:**
+    1. Identify school district from location
+    2. Load district's curriculum standards
+    3. Clone base brain with district context
+    4. Initialize with current quarter's standards
+    
+    **Location Data:**
+    - postal_code: Zip code
+    - school_name: School name
+    - city, state, country_code
+    
+    **Returns:**
+    - Brain instance with district context
+    - District information
+    - Current standards being taught
+    
+    **Example:**
+    ```json
+    {
+        "learner_id": "jayden_ofem",
+        "learning_profile": {
+            "grade_level": 6,
+            "reading_level": "4th grade",
+            "math_level": "5th grade",
+            "diagnoses": ["ADHD"],
+            "accommodations": {}
+        },
+        "location_data": {
+            "postal_code": "90001",
+            "school_name": "MLK Middle School",
+            "city": "Los Angeles",
+            "state": "CA",
+            "country_code": "US"
+        }
+    }
+    ```
+    """
+    try:
+        curriculum_db = next(get_curriculum_db())
+        
+        cloner = DistrictBrainCloner(curriculum_db)
+        
+        brain = await cloner.clone_brain_for_learner(
+            learner_id=learner_id,
+            learning_profile=learning_profile,
+            location_data=location_data
+        )
+        
+        district_context = brain.adaptation_state.get("district_context", {})
+        
+        logger.info(
+            f"Created district-aware brain for learner {learner_id} "
+            f"in district: {district_context.get('district_name', 'Unknown')}"
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "brain_id": brain.brain_id,
+                "learner_id": brain.learner_id,
+                "district_info": {
+                    "district_id": district_context.get("district_id"),
+                    "district_name": district_context.get("district_name"),
+                    "standards_count": len(
+                        district_context.get("standards", [])
+                    ),
+                    "current_quarter": district_context.get("current_quarter"),
+                    "current_standards_count": len(
+                        district_context.get("current_standards", [])
+                    )
+                },
+                "status": brain.status,
+                "created_at": brain.created_at.isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(
+            f"District-aware brain creation failed: {e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create district-aware brain: {str(e)}"
+        )
