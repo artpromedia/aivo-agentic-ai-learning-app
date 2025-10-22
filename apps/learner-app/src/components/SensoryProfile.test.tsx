@@ -18,17 +18,17 @@ function SensoryProfileDisplay({ profile }: { profile: SensoryProfile }) {
       )}
       
       {/* Auditory settings */}
-      {profile.auditory.mute_all_sounds && (
+      {profile.auditory?.mute_all_sounds && (
         <div data-testid="muted">Sound Muted</div>
       )}
       
       {/* Cognitive settings */}
-      {profile.cognitive.one_thing_at_a_time && (
+      {profile.cognitive?.one_thing_at_a_time && (
         <div data-testid="focus-mode">One Thing at a Time</div>
       )}
       
       <div data-testid="time-multiplier">
-        {profile.cognitive.time_multiplier}x time
+        {profile.cognitive?.time_multiplier}x time
       </div>
     </div>
   )
@@ -96,12 +96,12 @@ describe('SensoryProfile Component', () => {
     render(<SensoryProfileDisplay profile={jaydenProfile} />)
 
     expect(screen.getByText("Jayden's Focus Mode")).toBeTruthy()
-    expect(screen.getByTestId('preset-id')).toHaveTextContent('adhd-focus')
-    expect(screen.getByTestId('font-family')).toHaveTextContent('dyslexic')
-    expect(screen.getByTestId('focus-mode')).toHaveTextContent(
+    expect(screen.getByTestId('preset-id').textContent).toBe('adhd-focus')
+    expect(screen.getByTestId('font-family').textContent).toBe('dyslexic')
+    expect(screen.getByTestId('focus-mode').textContent).toBe(
       'One Thing at a Time'
     )
-    expect(screen.getByTestId('time-multiplier')).toHaveTextContent('1.5x time')
+    expect(screen.getByTestId('time-multiplier').textContent).toBe('1.5x time')
     expect(screen.queryByTestId('muted')).not.toBeTruthy()
   })
 
@@ -172,17 +172,17 @@ describe('SensoryProfile Component', () => {
     render(<SensoryProfileDisplay profile={jasonProfile} />)
 
     expect(screen.getByText("Jason's Calm Space")).toBeTruthy()
-    expect(screen.getByTestId('preset-id')).toHaveTextContent(
+    expect(screen.getByTestId('preset-id').textContent).toBe(
       'asd-low-sensory'
     )
-    expect(screen.getByTestId('dark-mode')).toHaveTextContent(
+    expect(screen.getByTestId('dark-mode').textContent).toBe(
       'Dark Mode Enabled'
     )
-    expect(screen.getByTestId('muted')).toHaveTextContent('Sound Muted')
-    expect(screen.getByTestId('focus-mode')).toHaveTextContent(
+    expect(screen.getByTestId('muted').textContent).toBe('Sound Muted')
+    expect(screen.getByTestId('focus-mode').textContent).toBe(
       'One Thing at a Time'
     )
-    expect(screen.getByTestId('time-multiplier')).toHaveTextContent('2x time')
+    expect(screen.getByTestId('time-multiplier').textContent).toBe('2x time')
   })
 
   it('applies correct accessibility features for ADHD', () => {
@@ -205,8 +205,8 @@ describe('SensoryProfile Component', () => {
 
     render(<SensoryProfileDisplay profile={profile} />)
 
-    expect(screen.getByTestId('font-family')).toHaveTextContent('dyslexic')
-    expect(screen.getByTestId('time-multiplier')).toHaveTextContent('1.5x time')
+    expect(screen.getByTestId('font-family').textContent).toBe('dyslexic')
+    expect(screen.getByTestId('time-multiplier').textContent).toBe('1.5x time')
   })
 
   it('applies correct accessibility features for ASD', () => {
@@ -232,6 +232,6 @@ describe('SensoryProfile Component', () => {
 
     expect(screen.getByTestId('dark-mode')).toBeTruthy()
     expect(screen.getByTestId('muted')).toBeTruthy()
-    expect(screen.getByTestId('time-multiplier')).toHaveTextContent('2x time')
+    expect(screen.getByTestId('time-multiplier').textContent).toBe('2x time')
   })
 })
