@@ -1,53 +1,58 @@
-"""
-AIVO AI Inference Service - Main Application
-"""
+"""FastAPI application for AI Inference Service."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
+from contextlib import asynccontextmanager
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.core.config import settings
+from app.api.v1 import generate, brain, adapt
+
+
+# Create FastAPI app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
+    # Startup
+    print(f"Starting {settings.PROJECT_NAME} {settings.VERSION}")
+    yield
+    # Shutdown
+    print("Shutting down AI Inference Service")
+
 
 app = FastAPI(
-    title="AIVO AI Inference Service",
-    version="1.0.0",
-    description="AI Brain Cloning and Adaptation Service",
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    lifespan=lifespan
 )
 
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Configure appropriately in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "ai-inference-service",
-        "version": "1.0.0",
-    }
+# Include routers
+app.include_router(generate.router, prefix=f"{settings.API_V1_STR}/generate")
+app.include_router(brain.router, prefix=f"{settings.API_V1_STR}/brain")
+app.include_router(adapt.router, prefix=f"{settings.API_V1_STR}/adapt")
 
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint."""
     return {
-        "message": "AIVO AI Inference Service",
-        "version": "1.0.0",
-        "health": "/health",
+        "service": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "status": "running"
     }
 
 
-@app.post("/clone/{learner_id}")
-async def clone_brain(learner_id: str):
-    """Clone AI brain for learner"""
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
     return {
-        "learner_id": learner_id,
-        "status": "cloning_initiated",
-        "message": "Brain cloning in progress"
+        "status": "healthy",
+        "service": settings.PROJECT_NAME
     }
