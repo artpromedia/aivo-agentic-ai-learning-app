@@ -16,19 +16,16 @@ from app.models.learner import Learner
 from app.models.sensory_profile import SensoryProfile
 from app.models.homework import (
     HomeworkSession,
-    HomeworkFile,
-    WorkProduct,
     HomeworkStatus,
     HomeworkStep
 )
 from app.models.iep import IEPGoal, IEPDataPoint, IEPGoalStatus
 from app.models.regulation import (
-    RegulationSession,
     EmotionHistory,
     EmotionType
 )
 from app.models.progress import ProgressRecord
-from app.models.analytics import DailyMetrics, SubjectMetrics
+from app.models.analytics import DailyMetrics
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,48 +34,48 @@ logger = logging.getLogger(__name__)
 def seed_database():
     """Main seeding function."""
     logger.info("🌱 Starting database seeding...")
-    
+
     # Create tables
     Base.metadata.create_all(bind=engine)
-    
+
     db = SessionLocal()
-    
+
     try:
         # Create parent user
         parent = create_parent_user(db)
-        
+
         # Create teacher
-        teacher = create_teacher_user(db)
-        
+        create_teacher_user(db)
+
         # Create learners
         jayden = create_jayden(db, parent)
         jason = create_jason(db, parent)
-        
+
         # Create sensory profiles
         create_sensory_profiles(db, parent, jayden, jason)
-        
+
         # Create IEP goals
         create_iep_goals(db, jayden, jason)
-        
+
         # Create homework sessions
         create_homework_sessions(db, jayden, jason)
-        
+
         # Create emotion history
         create_emotion_history(db, jayden, jason)
-        
+
         # Create progress records
         create_progress_records(db, jayden, jason)
-        
+
         # Create analytics
         create_analytics(db, jayden, jason)
-        
+
         db.commit()
-        
+
         logger.info("✅ Database seeding completed successfully!")
         logger.info("   - Parent: parent@ofem.family / Password123!")
         logger.info("   - Teacher: teacher@school.edu / Teacher123!")
         logger.info("   - Learners: Jayden (6th), Jason (9th)")
-        
+
     except Exception as e:
         logger.error(f"❌ Seeding failed: {e}")
         db.rollback()
@@ -90,7 +87,7 @@ def seed_database():
 def create_parent_user(db: Session) -> User:
     """Create parent user for Ofem family."""
     logger.info("Creating parent user...")
-    
+
     user = User(
         email="parent@ofem.family",
         hashed_password=get_password_hash("Password123!"),
@@ -104,10 +101,10 @@ def create_parent_user(db: Session) -> User:
             "email_digest": "daily"
         }
     )
-    
+
     db.add(user)
     db.flush()
-    
+
     logger.info(f"   ✓ Created parent: {user.email}")
     return user
 
@@ -115,7 +112,7 @@ def create_parent_user(db: Session) -> User:
 def create_teacher_user(db: Session) -> User:
     """Create teacher user."""
     logger.info("Creating teacher user...")
-    
+
     user = User(
         email="teacher@school.edu",
         hashed_password=get_password_hash("Teacher123!"),
@@ -124,10 +121,10 @@ def create_teacher_user(db: Session) -> User:
         is_active=True,
         is_verified=True
     )
-    
+
     db.add(user)
     db.flush()
-    
+
     logger.info(f"   ✓ Created teacher: {user.email}")
     return user
 
@@ -135,7 +132,7 @@ def create_teacher_user(db: Session) -> User:
 def create_jayden(db: Session, parent: User) -> Learner:
     """Create Jayden Ofem - 6th grader with ADHD and Dyslexia."""
     logger.info("Creating Jayden Ofem...")
-    
+
     jayden = Learner(
         user_id=parent.id,
         first_name="Jayden",
@@ -166,10 +163,10 @@ def create_jayden(db: Session, parent: User) -> Learner:
             "background_music": False
         }
     )
-    
+
     db.add(jayden)
     db.flush()
-    
+
     logger.info("   ✓ Created Jayden: 6th grade, ADHD + Dyslexia")
     return jayden
 
@@ -177,7 +174,7 @@ def create_jayden(db: Session, parent: User) -> Learner:
 def create_jason(db: Session, parent: User) -> Learner:
     """Create Jason Ofem - 9th grader with ASD and Anxiety."""
     logger.info("Creating Jason Ofem...")
-    
+
     jason = Learner(
         user_id=parent.id,
         first_name="Jason",
@@ -208,10 +205,10 @@ def create_jason(db: Session, parent: User) -> Learner:
             "mute_all_sounds": True
         }
     )
-    
+
     db.add(jason)
     db.flush()
-    
+
     logger.info("   ✓ Created Jason: 9th grade, ASD + Anxiety")
     return jason
 
@@ -224,7 +221,7 @@ def create_sensory_profiles(
 ):
     """Create sensory profiles for both learners."""
     logger.info("Creating sensory profiles...")
-    
+
     # Jayden's ADHD focus profile
     jayden_profile = SensoryProfile(
         user_id=parent.id,
@@ -282,7 +279,7 @@ def create_sensory_profiles(
             "white_noise": False
         }
     )
-    
+
     # Jason's low sensory profile
     jason_profile = SensoryProfile(
         user_id=parent.id,
@@ -346,22 +343,22 @@ def create_sensory_profiles(
             "content_warnings": ["loud-noises", "sudden-changes"]
         }
     )
-    
+
     # Link to learners
     jayden.sensory_profile_id = jayden_profile.id
     jason.sensory_profile_id = jason_profile.id
-    
+
     db.add(jayden_profile)
     db.add(jason_profile)
     db.flush()
-    
+
     logger.info("   ✓ Created sensory profiles for both learners")
 
 
 def create_iep_goals(db: Session, jayden: Learner, jason: Learner):
     """Create IEP goals with progress data."""
     logger.info("Creating IEP goals...")
-    
+
     # Jayden's goals
     jayden_goals = [
         {
@@ -401,7 +398,7 @@ def create_iep_goals(db: Session, jayden: Learner, jason: Learner):
             "status": IEPGoalStatus.NEEDS_ATTENTION
         }
     ]
-    
+
     # Jason's goals
     jason_goals = [
         {
@@ -441,7 +438,7 @@ def create_iep_goals(db: Session, jayden: Learner, jason: Learner):
             "status": IEPGoalStatus.EXCEEDING
         }
     ]
-    
+
     # Create Jayden's goals
     for goal_data in jayden_goals:
         goal = IEPGoal(
@@ -463,10 +460,10 @@ def create_iep_goals(db: Session, jayden: Learner, jason: Learner):
         )
         db.add(goal)
         db.flush()
-        
+
         # Add data points
         create_iep_data_points(db, goal, goal_data["progress"])
-    
+
     # Create Jason's goals
     for goal_data in jason_goals:
         goal = IEPGoal(
@@ -488,10 +485,10 @@ def create_iep_goals(db: Session, jayden: Learner, jason: Learner):
         )
         db.add(goal)
         db.flush()
-        
+
         # Add data points
         create_iep_data_points(db, goal, goal_data["progress"])
-    
+
     logger.info(f"   ✓ Created {len(jayden_goals)} goals for Jayden")
     logger.info(f"   ✓ Created {len(jason_goals)} goals for Jason")
 
@@ -504,11 +501,11 @@ def create_iep_data_points(
     """Create realistic data points showing progress."""
     # Create 10 data points over 2 months
     start_date = date(2024, 9, 1)
-    
+
     for i in range(10):
         # Progress increases gradually
         value = min(int(target_progress * (i / 9)), 100)
-        
+
         point = IEPDataPoint(
             goal_id=goal.id,
             value=value,
@@ -529,7 +526,7 @@ def create_homework_sessions(
 ):
     """Create homework sessions."""
     logger.info("Creating homework sessions...")
-    
+
     # Jayden's math homework
     jayden_hw = HomeworkSession(
         learner_id=jayden.id,
@@ -563,7 +560,7 @@ def create_homework_sessions(
         hints_given=1,
         scaffolding_level="high"
     )
-    
+
     # Jason's algebra homework
     jason_hw = HomeworkSession(
         learner_id=jason.id,
@@ -591,11 +588,11 @@ def create_homework_sessions(
         hints_given=0,
         scaffolding_level="moderate"
     )
-    
+
     db.add(jayden_hw)
     db.add(jason_hw)
     db.flush()
-    
+
     logger.info("   ✓ Created homework sessions")
 
 
@@ -606,7 +603,7 @@ def create_emotion_history(
 ):
     """Create emotion check-in history."""
     logger.info("Creating emotion history...")
-    
+
     # Jayden's emotions (ADHD pattern - more variability)
     jayden_emotions = [
         (
@@ -634,7 +631,7 @@ def create_emotion_history(
             datetime(2025, 10, 22, 11, 0)
         )
     ]
-    
+
     # Jason's emotions (ASD pattern - more stable, lower intensity)
     jason_emotions = [
         (
@@ -662,7 +659,7 @@ def create_emotion_history(
             datetime(2025, 10, 22, 11, 0)
         )
     ]
-    
+
     for emotion, level, trigger, timestamp in jayden_emotions:
         entry = EmotionHistory(
             learner_id=jayden.id,
@@ -672,7 +669,7 @@ def create_emotion_history(
             created_at=timestamp
         )
         db.add(entry)
-    
+
     for emotion, level, trigger, timestamp in jason_emotions:
         entry = EmotionHistory(
             learner_id=jason.id,
@@ -682,7 +679,7 @@ def create_emotion_history(
             created_at=timestamp
         )
         db.add(entry)
-    
+
     logger.info("   ✓ Created emotion history")
 
 
@@ -693,7 +690,7 @@ def create_progress_records(
 ):
     """Create progress tracking records."""
     logger.info("Creating progress records...")
-    
+
     # Jayden's activities (last 30 days)
     for i in range(20):
         record = ProgressRecord(
@@ -710,7 +707,7 @@ def create_progress_records(
             created_at=datetime.utcnow() - timedelta(days=30-i)
         )
         db.add(record)
-    
+
     # Jason's activities
     for i in range(15):
         record = ProgressRecord(
@@ -727,14 +724,14 @@ def create_progress_records(
             created_at=datetime.utcnow() - timedelta(days=30-i)
         )
         db.add(record)
-    
+
     logger.info("   ✓ Created progress records")
 
 
 def create_analytics(db: Session, jayden: Learner, jason: Learner):
     """Create daily analytics."""
     logger.info("Creating analytics...")
-    
+
     # Last 30 days for Jayden
     for i in range(30):
         daily = DailyMetrics(
@@ -750,7 +747,7 @@ def create_analytics(db: Session, jayden: Learner, jason: Learner):
             average_emotion_level=3.5
         )
         db.add(daily)
-    
+
     # Last 30 days for Jason
     for i in range(30):
         daily = DailyMetrics(
@@ -766,7 +763,7 @@ def create_analytics(db: Session, jayden: Learner, jason: Learner):
             average_emotion_level=2.5
         )
         db.add(daily)
-    
+
     logger.info("   ✓ Created analytics")
 
 

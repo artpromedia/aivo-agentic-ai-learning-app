@@ -1,6 +1,7 @@
 {
   "extends": "@aivo/typescript-config/react.json",
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

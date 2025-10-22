@@ -9,12 +9,21 @@ disable=
     no-member,
     # Import errors handled by path modification
     import-error,
+    no-name-in-module,
     # Unused imports in alembic/env.py are necessary for SQLAlchemy
     unused-import,
     # Wrong import position is intentional after path modification
     wrong-import-position,
     # Missing docstrings for generated files
-    missing-module-docstring
+    missing-module-docstring,
+    # Format and style issues handled by other linters
+    logging-fstring-interpolation,
+    trailing-whitespace,
+    # Testing-specific
+    redefined-outer-name,
+    unused-argument,
+    # Library stubs
+    import-outside-toplevel
 
 [TYPECHECK]
 # Generated members for dynamic modules

@@ -10,7 +10,11 @@ from app.core.security import get_password_hash, create_access_token
 from app.models.user import User, UserRole
 from app.models.learner import Learner
 from app.models.sensory_profile import SensoryProfile
-from app.models.homework import HomeworkSession, HomeworkFile, HomeworkStatus, HomeworkStep
+from app.models.homework import (
+    HomeworkSession,
+    HomeworkStep,
+    HomeworkStatus
+)
 from app.models.iep import IEPGoal, IEPGoalStatus
 from app.models.regulation import EmotionHistory, EmotionType
 
@@ -43,12 +47,12 @@ def client(db):
             yield db
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     with TestClient(app) as test_client:
         yield test_client
-    
+
     app.dependency_overrides.clear()
 
 
@@ -350,10 +354,10 @@ def jayden_iep_goals(db, jayden_learner):
             accommodations=["break_reminders", "fidget_tools", "movement_breaks"]
         )
     ]
-    
+
     for goal in goals:
         db.add(goal)
-    
+
     db.commit()
     return goals
 
@@ -402,10 +406,10 @@ def jason_iep_goals(db, jason_learner):
             accommodations=["extended_time", "quiet_workspace"]
         )
     ]
-    
+
     for goal in goals:
         db.add(goal)
-    
+
     db.commit()
     return goals
 
@@ -521,10 +525,10 @@ def jayden_emotion_history(db, jayden_learner):
             created_at=datetime(2025, 10, 22, 10, 30, 0)
         )
     ]
-    
+
     for emotion in emotions:
         db.add(emotion)
-    
+
     db.commit()
     return emotions
 
