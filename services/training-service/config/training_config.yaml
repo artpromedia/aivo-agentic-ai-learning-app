@@ -1,0 +1,139 @@
+# AIVO Base Brain Training Configuration
+# Part of PROMPT 57 Part B: Base Brain Training Strategy
+# This trains the master model on K-12 curriculum worldwide
+
+training:
+  model_name: "aivo-base-brain-v1"
+  base_model: "gpt-4-turbo"  # or "claude-3-opus" or "gemini-pro"
+  
+  # Training approach
+  method: "fine-tuning"  # Options: fine-tuning, rag, hybrid
+  
+  # Data sources
+  data:
+    # US Curriculum
+    - source: "common_core_math"
+      weight: 1.0
+      grades: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    - source: "common_core_ela"
+      weight: 1.0
+      grades: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    - source: "ngss_science"
+      weight: 0.9
+      grades: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    
+    # State Standards (all 50 states)
+    - source: "state_standards_*"
+      weight: 0.7
+      
+    # International
+    - source: "uk_national_curriculum"
+      weight: 0.8
+    - source: "ib_curriculum"
+      weight: 0.8
+    - source: "australian_curriculum"
+      weight: 0.7
+    - source: "cbse_india"
+      weight: 0.7
+    - source: "china_national_standards"
+      weight: 0.6
+    
+    # Textbooks and educational content
+    - source: "open_textbooks"
+      weight: 0.9
+    - source: "khan_academy_content"
+      weight: 0.8
+    - source: "educational_worksheets"
+      weight: 0.7
+  
+  # Special Education emphasis
+  special_education:
+    enabled: true
+    diagnoses_covered:
+      - ADHD
+      - ASD
+      - Dyslexia
+      - Dyscalculia
+      - Anxiety
+      - Intellectual_Disability
+    weight_multiplier: 1.5  # Give extra weight to special ed adaptations
+    
+    # Training data for each diagnosis
+    training_examples:
+      ADHD:
+        - brief_responses: true
+        - bullet_points: true
+        - one_thing_at_a_time: true
+      ASD:
+        - literal_language: true
+        - structured_format: true
+        - concrete_examples: true
+      Dyslexia:
+        - simple_vocabulary: true
+        - short_sentences: true
+        - phonetic_support: true
+  
+  # Hyperparameters
+  hyperparameters:
+    learning_rate: 0.0001
+    batch_size: 32
+    epochs: 10
+    warmup_steps: 1000
+    max_sequence_length: 8192
+    
+  # Validation
+  validation:
+    split: 0.2
+    metrics:
+      - accuracy
+      - curriculum_alignment
+      - readability_score
+      - special_ed_appropriateness
+
+# Regional adaptation
+regions:
+  us:
+    enabled: true
+    priority: 1
+    districts_count: 13000
+    
+  europe:
+    enabled: true
+    priority: 2
+    countries:
+      - GB
+      - FR
+      - DE
+      - ES
+      - IT
+      
+  africa:
+    enabled: true
+    priority: 3
+    focus_countries:
+      - NG  # Nigeria
+      - ZA  # South Africa
+      - KE  # Kenya
+      - EG  # Egypt
+      
+  asia:
+    enabled: true
+    priority: 2
+    countries:
+      - CN  # China
+      - IN  # India
+      - JP  # Japan
+      - KR  # South Korea
+      
+  oceania:
+    enabled: true
+    priority: 3
+    countries:
+      - AU  # Australia
+      - NZ  # New Zealand
+
+# Output
+output:
+  model_path: "/models/aivo-base-brain-v1"
+  checkpoint_interval: 1000
+  save_optimizer_state: true
