@@ -11,6 +11,8 @@ from app.api.v1.endpoints import (  # pylint: disable=import-error
     brain,
     homework,
     progress,
+    sensory,
+    regulation,
 )
 
 api_router = APIRouter()
@@ -31,4 +33,10 @@ api_router.include_router(
 )
 api_router.include_router(
     progress.router, prefix="/progress", tags=["progress"]
+)
+api_router.include_router(
+    sensory.router, prefix="/sensory", tags=["sensory"]
+)
+api_router.include_router(
+    regulation.router, prefix="/regulation", tags=["regulation"]
 )
