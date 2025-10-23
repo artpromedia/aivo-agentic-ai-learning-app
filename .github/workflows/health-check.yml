@@ -1,0 +1,59 @@
+name: Production Health Check
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Check Production Health
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check API Gateway
+        id: api_check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.aivo.app/health)
+          if [ "$response" != "200" ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "status=healthy" >> $GITHUB_OUTPUT
+      
+      - name: Check Frontend Apps
+        run: |
+          for app in "aivo.app" "parent.aivo.app" "teacher.aivo.app" "learn.aivo.app"; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" "https://$app/health")
+            if [ "$response" != "200" ]; then
+              echo "❌ $app is down (HTTP $response)"
+              exit 1
+            fi
+            echo "✅ $app is healthy"
+          done
+      
+      - name: Check Database
+        run: |
+          # Connect via bastion and check database
+          echo "Database check placeholder"
+      
+      - name: Notify on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: '🚨 AIVO Production Health Check Failed!'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          
+      - name: Create incident
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Production Health Check Failed',
+              body: 'Automated health check detected issues in production. Immediate attention required.',
+              labels: ['incident', 'production', 'critical']
+            })

@@ -247,6 +247,38 @@ services:
         reservations:
           memory: 8G
 
+  # ========================================
+  # ASSESSMENT SCHEDULER (cron job service)
+  # ========================================
+  assessment-scheduler:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: aivo-assessment-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-aivo_user}:${DB_PASSWORD:-aivo_dev_password}@postgres:5432/${DB_NAME:-aivo_db}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aivo_redis_dev}@redis:6379/0
+      - AI_SERVICE_URL=http://ai-inference-service:8002
+    volumes:
+      - ./services/api-gateway:/app
+      - ./scripts/cron:/cron
+    networks:
+      - aivo-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-gateway:
+        condition: service_healthy
+    # Run daily at 9 AM UTC
+    command: >
+      sh -c "
+        echo '0 9 * * * cd /app && python /cron/assessment_scheduler.py >> /var/log/cron.log 2>&1' > /etc/crontabs/root &&
+        crond -f -l 2
+      "
+
 networks:
   aivo-network:
     driver: bridge

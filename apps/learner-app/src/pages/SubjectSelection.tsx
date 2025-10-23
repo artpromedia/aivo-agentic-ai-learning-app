@@ -65,6 +65,21 @@ export function SubjectSelection() {
             </p>
           </div>
           <div className="flex gap-4 items-center">
+            {/* Baseline Assessment Button */}
+            <button
+              onClick={() => navigate('/assessment')}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold"
+              style={{
+                fontSize: themeConfig.fontSize.base,
+                transitionDuration: `${themeConfig.animations.duration}ms`,
+              }}
+              aria-label="Take Baseline Assessment"
+              data-testid="nav-assessment"
+            >
+              <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>🎯</span>
+              <span>Take Assessment</span>
+            </button>
+
             {/* Homework Helper Button */}
             <button
               onClick={() => navigate('/homework-helper')}
@@ -74,6 +89,7 @@ export function SubjectSelection() {
                 transitionDuration: `${themeConfig.animations.duration}ms`,
               }}
               aria-label="Homework Helper"
+              data-testid="nav-homework"
             >
               <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>📝</span>
               <span>Homework Helper</span>
@@ -90,6 +106,7 @@ export function SubjectSelection() {
                 transitionDuration: `${themeConfig.animations.duration}ms`,
               }}
               aria-label="Exit"
+              data-testid="nav-exit"
             >
               🚪
             </button>

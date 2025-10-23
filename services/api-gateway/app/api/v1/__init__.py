@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (  # pylint: disable=import-error
     sensory,
     regulation,
     analytics,
+    assessments,
 )
 
 api_router = APIRouter()
@@ -43,4 +44,7 @@ api_router.include_router(
 )
 api_router.include_router(
     analytics.router, prefix="/analytics", tags=["analytics"]
+)
+api_router.include_router(
+    assessments.router, prefix="/assessments", tags=["assessments"]
 )

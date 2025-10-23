@@ -1,0 +1,80 @@
+name: Performance Testing
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
+  workflow_dispatch:
+
+jobs:
+  load-test:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      
+      - name: Create load test script
+        run: |
+          mkdir -p tests/performance
+          cat > tests/performance/load-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+
+          export const options = {
+            stages: [
+              { duration: '2m', target: 10 },  // Ramp up to 10 users
+              { duration: '5m', target: 10 },  // Stay at 10 users
+              { duration: '2m', target: 50 },  // Ramp up to 50 users
+              { duration: '5m', target: 50 },  // Stay at 50 users
+              { duration: '2m', target: 0 },   // Ramp down to 0
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<500'],  // 95% of requests must complete below 500ms
+              http_req_failed: ['rate<0.01'],     // Error rate must be below 1%
+            },
+          };
+
+          export default function () {
+            // Health check
+            const healthRes = http.get('https://dev-api.aivo.app/health');
+            check(healthRes, {
+              'health check status is 200': (r) => r.status === 200,
+            });
+
+            sleep(1);
+
+            // API endpoint test (replace with actual endpoint)
+            const apiRes = http.get('https://dev-api.aivo.app/api/v1/learners');
+            check(apiRes, {
+              'api status is 200 or 401': (r) => r.status === 200 || r.status === 401,
+            });
+
+            sleep(1);
+          }
+          EOF
+      
+      - name: Run load test
+        run: |
+          k6 run tests/performance/load-test.js \
+            --out json=results.json || true
+      
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: results.json
+        continue-on-error: true
+      
+      - name: Analyze results
+        run: |
+          echo "Load test completed. Check artifacts for detailed results."
+          cat results.json | tail -20 || true

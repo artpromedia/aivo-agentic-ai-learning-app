@@ -103,7 +103,6 @@ class AIService:
             )
             
             response.raise_for_status()
-            data = response.json()
             
             logger.info(
                 f"Created brain {brain_id} for "
@@ -727,6 +726,113 @@ Difficulty: [level]"""
                 )
         
         return analysis
+    
+    # ========================================================================
+    # ASSESSMENT PROXY METHODS
+    # ========================================================================
+    
+    async def check_assessment_due(self, learner_id: str) -> Dict[str, Any]:
+        """
+        Check if assessment is due for learner.
+        
+        Proxies to AI Inference Service assessment endpoint.
+        """
+        client = await self._get_client()
+        
+        try:
+            response = await client.get(
+                f"{self.inference_url}/api/v1/assessments/check/{learner_id}"
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("data", {})
+            
+        except Exception as e:
+            logger.error(f"Failed to check assessment: {e}")
+            return {
+                "is_due": False,
+                "error": str(e)
+            }
+    
+    async def submit_quick_assessment(
+        self,
+        schedule_id: str,
+        learner_id: str,
+        responses: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Submit quick assessment responses.
+        
+        Proxies to AI Inference Service.
+        """
+        client = await self._get_client()
+        
+        try:
+            response = await client.post(
+                f"{self.inference_url}/api/v1/assessments/quick/submit",
+                json={
+                    "schedule_id": schedule_id,
+                    "learner_id": learner_id,
+                    "responses": responses
+                }
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("data", {})
+            
+        except Exception as e:
+            logger.error(f"Failed to submit assessment: {e}")
+            raise
+    
+    async def get_assessment_results(
+        self,
+        assessment_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get assessment results.
+        
+        Proxies to AI Inference Service.
+        """
+        client = await self._get_client()
+        
+        try:
+            response = await client.get(
+                f"{self.inference_url}/api/v1/assessments/results/learner/{assessment_id}"
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("data", {})
+            
+        except Exception as e:
+            logger.error(f"Failed to get results: {e}")
+            raise
+    
+    async def get_assessment_history(
+        self,
+        learner_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get assessment history for learner.
+        
+        Proxies to AI Inference Service.
+        """
+        client = await self._get_client()
+        
+        try:
+            response = await client.get(
+                f"{self.inference_url}/api/v1/assessments/history/{learner_id}"
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("data", {})
+            
+        except Exception as e:
+            logger.error(f"Failed to get history: {e}")
+            raise
 
 
 # Global AI service instance

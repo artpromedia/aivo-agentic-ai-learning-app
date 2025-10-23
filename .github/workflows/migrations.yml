@@ -1,0 +1,72 @@
+name: Database Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      action:
+        description: 'Migration action'
+        required: true
+        type: choice
+        options:
+          - upgrade
+          - downgrade
+          - current
+      revision:
+        description: 'Target revision (leave empty for head)'
+        required: false
+
+jobs:
+  migrate:
+    name: Run Database Migration
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        working-directory: ./services/api-gateway
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run migration
+        working-directory: ./services/api-inference-service
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ inputs.action }}" == "upgrade" ]; then
+            if [ -z "${{ inputs.revision }}" ]; then
+              echo "Running upgrade to head..."
+              psql $DATABASE_URL -f migrations/008_assessment_system_complete.sql
+            else
+              echo "Running upgrade to ${{ inputs.revision }}..."
+              psql $DATABASE_URL -f migrations/${{ inputs.revision }}.sql
+            fi
+          elif [ "${{ inputs.action }}" == "downgrade" ]; then
+            echo "Downgrade not supported for SQL migrations"
+            exit 1
+          else
+            echo "Showing current migration status..."
+            psql $DATABASE_URL -c "SELECT * FROM pg_tables WHERE schemaname = 'public';"
+          fi
+      
+      - name: Verify migration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Verifying assessment tables..."
+          psql $DATABASE_URL -c "SELECT COUNT(*) FROM assessment_schedules;" || echo "Table not found"

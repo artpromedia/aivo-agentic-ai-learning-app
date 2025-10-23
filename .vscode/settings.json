@@ -14,5 +14,16 @@
     "className",
     "ngClass"
   ],
-  "css.lint.unknownAtRules": "ignore"
+  "css.lint.unknownAtRules": "ignore",
+  
+  // Suppress SQL false positives for PostgreSQL syntax
+  "files.associations": {
+    "*.sql": "postgres"
+  },
+  "sqltools.useNodeRuntime": true,
+  "sqltools.disableNodeDetectNotifications": true,
+  
+  // Python settings - disable non-essential linters
+  "python.linting.enabled": false,
+  "python.linting.pylintEnabled": false
 }

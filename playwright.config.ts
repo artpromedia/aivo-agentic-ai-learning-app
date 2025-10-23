@@ -47,6 +47,6 @@ export default defineConfig({
     command: 'pnpm run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000,
+    timeout: 240000, // Increased from 120s to 240s for multiple portals
   },
 });

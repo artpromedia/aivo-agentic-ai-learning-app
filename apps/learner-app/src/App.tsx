@@ -16,6 +16,7 @@ import { SubjectSelection } from './pages/SubjectSelection';
 import { ModelCloning } from './pages/ModelCloning';
 import { BaselineAssessment } from './pages/BaselineAssessment';
 import { AssessmentResults } from './pages/AssessmentResults';
+import { AssessmentResultsPage } from './pages/Assessment/AssessmentResultsPage';
 import { ReadingActivity } from './pages/activities/Reading';
 import { MathActivity } from './pages/activities/Math';
 import { SpeechActivity } from './pages/activities/Speech';
@@ -76,6 +77,7 @@ routeRegistry.registerMany([
   { path: '/cloning', screen: 'ModelCloning', title: 'Model Cloning', category: 'learner', roles: ['learner'] },
   { path: '/assessment', screen: 'BaselineAssessment', title: 'Assessment', category: 'learner', roles: ['learner'] },
   { path: '/assessment-results', screen: 'AssessmentResults', title: 'Assessment Results', category: 'learner', roles: ['learner'] },
+  { path: '/assessment/:assessmentId/results', screen: 'AssessmentResultsPage', title: 'Assessment Results Detail', category: 'learner', roles: ['learner'], params: { assessmentId: 'string' } },
   { path: '/activity/reading', screen: 'ReadingActivity', title: 'Reading Activity', category: 'learner', roles: ['learner'] },
   { path: '/activity/math', screen: 'MathActivity', title: 'Math Activity', category: 'learner', roles: ['learner'] },
   { path: '/activity/speech', screen: 'SpeechActivity', title: 'Speech Activity', category: 'learner', roles: ['learner'] },
@@ -119,6 +121,12 @@ routeRegistry.registerMany([
   { path: '/learner/hs/worldlanguages', screen: 'HSWorldLanguages', title: 'World Languages (HS)', category: 'learner', roles: ['learner'] },
   { path: '/learner/hs/arts', screen: 'HSArts', title: 'Arts (HS)', category: 'learner', roles: ['learner'] },
   { path: '/learner/hs/pehealth', screen: 'HSPEHealth', title: 'PE/Health (HS)', category: 'learner', roles: ['learner'] },
+  // Demo routes - no authentication required
+  { path: '/demo/assessment', screen: 'BaselineAssessment', title: 'Demo: Assessment', category: 'developer' },
+  { path: '/demo/cloning', screen: 'ModelCloning', title: 'Demo: Cloning', category: 'developer' },
+  { path: '/demo/results', screen: 'AssessmentResults', title: 'Demo: Results', category: 'developer' },
+  { path: '/demo/subjects', screen: 'SubjectSelection', title: 'Demo: Subjects', category: 'developer' },
+  { path: '/demo/homework', screen: 'HomeworkHelper', title: 'Demo: Homework', category: 'developer' },
 ]);
 
 function App() {
@@ -169,6 +177,16 @@ function App() {
           <Route path="/cloning" element={<ProtectedRoute allowedRoles={['learner']}><ModelCloning /></ProtectedRoute>} />
           <Route path="/assessment" element={<ProtectedRoute allowedRoles={['learner']}><BaselineAssessment /></ProtectedRoute>} />
           <Route path="/assessment-results" element={<ProtectedRoute allowedRoles={['learner']}><AssessmentResults /></ProtectedRoute>} />
+          <Route path="/assessment/:assessmentId/results" element={<ProtectedRoute allowedRoles={['learner']}><AssessmentResultsPage /></ProtectedRoute>} />
+          
+          {/* Demo Routes - No Authentication Required */}
+          <Route path="/demo/assessment" element={<BaselineAssessment />} />
+          <Route path="/demo/cloning" element={<ModelCloning />} />
+          <Route path="/demo/results" element={<AssessmentResults />} />
+          <Route path="/demo/assessment-results" element={<AssessmentResultsPage />} />
+          <Route path="/demo/subjects" element={<SubjectSelection />} />
+          <Route path="/demo/homework" element={<HomeworkHelperPage />} />
+          
           <Route path="/activity/reading" element={<ProtectedRoute allowedRoles={['learner']}><ReadingActivity /></ProtectedRoute>} />
           <Route path="/activity/math" element={<ProtectedRoute allowedRoles={['learner']}><MathActivity /></ProtectedRoute>} />
           <Route path="/activity/speech" element={<ProtectedRoute allowedRoles={['learner']}><SpeechActivity /></ProtectedRoute>} />

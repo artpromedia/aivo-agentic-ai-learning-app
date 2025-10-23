@@ -1,0 +1,156 @@
+name: Emergency Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      commit_sha:
+        description: 'Commit SHA to rollback to (leave empty for previous)'
+        required: false
+      reason:
+        description: 'Reason for rollback'
+        required: true
+
+jobs:
+  rollback:
+    name: Rollback ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Determine rollback target
+        id: target
+        run: |
+          if [ -z "${{ inputs.commit_sha }}" ]; then
+            # Get previous deployment commit
+            PREV_SHA=$(git rev-parse HEAD~1)
+            echo "sha=$PREV_SHA" >> $GITHUB_OUTPUT
+            echo "Rolling back to previous commit: $PREV_SHA"
+          else
+            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+            echo "Rolling back to specified commit: ${{ inputs.commit_sha }}"
+          fi
+      
+      - name: Create rollback issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔄 Rollback: ${{ inputs.environment }} to ${{ steps.target.outputs.sha }}`,
+              body: `**Reason:** ${{ inputs.reason }}
+              
+              **Environment:** ${{ inputs.environment }}
+              **Target Commit:** ${{ steps.target.outputs.sha }}
+              **Triggered by:** @${{ github.actor }}
+              **Time:** ${new Date().toISOString()}
+              
+              ## Actions Taken
+              - [ ] Services rolled back
+              - [ ] Database checked
+              - [ ] Health verified
+              - [ ] Stakeholders notified`,
+              labels: ['rollback', '${{ inputs.environment }}', 'incident']
+            })
+            
+            console.log(`Created issue: ${issue.data.html_url}`)
+      
+      - name: Checkout rollback target
+        run: |
+          git checkout ${{ steps.target.outputs.sha }}
+      
+      - name: Build rollback images
+        run: |
+          docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
+      
+      - name: Deploy rollback
+        run: |
+          # Deploy to target environment
+          ./scripts/deploy-${{ inputs.environment }}.sh
+      
+      - name: Verify rollback
+        run: |
+          sleep 30
+          
+          HEALTH_URL="https://api.aivo.app/health"
+          if [ "${{ inputs.environment }}" == "staging" ]; then
+            HEALTH_URL="https://staging-api.aivo.app/health"
+          fi
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL")
+          
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Rollback health check failed!"
+            exit 1
+          fi
+          
+          echo "✅ Rollback successful - system is healthy"
+      
+      - name: Notify success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "✅ Rollback Successful",
+              attachments: [{
+                color: "good",
+                fields: [
+                  {
+                    title: "Environment",
+                    value: "${{ inputs.environment }}",
+                    short: true
+                  },
+                  {
+                    title: "Rolled back to",
+                    value: "${{ steps.target.outputs.sha }}",
+                    short: true
+                  },
+                  {
+                    title: "Reason",
+                    value: "${{ inputs.reason }}",
+                    short: false
+                  }
+                ]
+              }]
+            }
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      
+      - name: Notify failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚨 ROLLBACK FAILED - IMMEDIATE ATTENTION REQUIRED",
+              attachments: [{
+                color: "danger",
+                fields: [
+                  {
+                    title: "Environment",
+                    value: "${{ inputs.environment }}",
+                    short: true
+                  },
+                  {
+                    title: "Status",
+                    value: "FAILED",
+                    short: true
+                  }
+                ]
+              }]
+            }
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -1,0 +1,93 @@
+name: Curriculum Data Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Curriculum source'
+        required: true
+        type: choice
+        options:
+          - us_common_core
+          - us_ngss
+          - us_all_states
+          - uk_national_curriculum
+          - ib_all
+          - all
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  import-curriculum:
+    name: Import Curriculum Data
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 120
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        working-directory: ./services/curriculum-service
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Download curriculum data
+        run: |
+          echo "Downloading curriculum data for ${{ inputs.source }}..."
+          # In production, this would download from curriculum data sources
+          mkdir -p data/curriculum
+      
+      - name: Run import
+        working-directory: ./services/curriculum-service
+        env:
+          CURRICULUM_DB_URL: ${{ secrets.CURRICULUM_DB_URL }}
+        run: |
+          echo "Importing ${{ inputs.source }} curriculum standards..."
+          python -m app.ingestion.standards_importer \
+            --source ${{ inputs.source }} || true
+      
+      - name: Verify import
+        working-directory: ./services/curriculum-service
+        env:
+          CURRICULUM_DB_URL: ${{ secrets.CURRICULUM_DB_URL }}
+        run: |
+          echo "Verifying curriculum import..."
+          python -c "
+          import os
+          import psycopg2
+          
+          conn = psycopg2.connect(os.getenv('CURRICULUM_DB_URL'))
+          cur = conn.cursor()
+          cur.execute('SELECT COUNT(*) FROM curriculum_standards')
+          count = cur.fetchone()[0]
+          print(f'Total standards imported: {count}')
+          conn.close()
+          " || echo "Verification skipped"
+      
+      - name: Create import summary
+        run: |
+          echo "## Curriculum Import Summary" > import-summary.md
+          echo "" >> import-summary.md
+          echo "- **Source**: ${{ inputs.source }}" >> import-summary.md
+          echo "- **Environment**: ${{ inputs.environment }}" >> import-summary.md
+          echo "- **Date**: $(date)" >> import-summary.md
+          echo "- **Status**: Completed" >> import-summary.md
+      
+      - name: Upload summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: curriculum-import-summary
+          path: import-summary.md

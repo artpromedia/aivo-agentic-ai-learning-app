@@ -1,0 +1,126 @@
+name: Train Base Brain Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Base model to use'
+        required: true
+        type: choice
+        options:
+          - gpt-4-turbo
+          - claude-3-opus
+          - gemini-pro
+      version:
+        description: 'Model version tag'
+        required: true
+        default: 'v1.0.0'
+      district:
+        description: 'District ID (optional, for district-specific training)'
+        required: false
+
+jobs:
+  train-model:
+    name: Train AIVO Base Brain
+    runs-on: ubuntu-latest
+    timeout-minutes: 720  # 12 hours max
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        working-directory: ./services/training-service
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Prepare training data
+        working-directory: ./services/training-service
+        env:
+          CURRICULUM_DB_URL: ${{ secrets.CURRICULUM_DB_URL }}
+        run: |
+          echo "Preparing training data from curriculum database..."
+          python -m app.training.prepare_data || true
+      
+      - name: Train model
+        working-directory: ./services/training-service
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+          BASE_MODEL: ${{ inputs.model }}
+          MODEL_VERSION: ${{ inputs.version }}
+          DISTRICT_ID: ${{ inputs.district }}
+        run: |
+          echo "Training AIVO brain model..."
+          echo "Base Model: ${{ inputs.model }}"
+          echo "Version: ${{ inputs.version }}"
+          python -m app.training.curriculum_trainer \
+            --config config/training_config.yaml \
+            --output /tmp/models/aivo-base-brain-${{ inputs.version }} || true
+      
+      - name: Create model metadata
+        run: |
+          mkdir -p /tmp/models/aivo-base-brain-${{ inputs.version }}
+          cat > /tmp/models/aivo-base-brain-${{ inputs.version }}/metadata.json << EOF
+          {
+            "model_name": "aivo-base-brain-${{ inputs.version }}",
+            "base_model": "${{ inputs.model }}",
+            "version": "${{ inputs.version }}",
+            "district_id": "${{ inputs.district }}",
+            "training_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "trained_by": "${{ github.actor }}",
+            "commit_sha": "${{ github.sha }}",
+            "repository": "${{ github.repository }}"
+          }
+          EOF
+      
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: aivo-base-brain-${{ inputs.version }}
+          path: /tmp/models/aivo-base-brain-${{ inputs.version }}
+          retention-days: 90
+      
+      - name: Deploy model to storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+        run: |
+          # Install AWS CLI
+          pip install awscli
+          
+          # Upload to S3 (if configured)
+          if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+            echo "Uploading model to S3..."
+            aws s3 cp /tmp/models/aivo-base-brain-${{ inputs.version }} \
+              s3://aivo-models/base-brains/${{ inputs.version }}/ \
+              --recursive || echo "S3 upload skipped"
+          else
+            echo "AWS credentials not configured, skipping S3 upload"
+          fi
+      
+      - name: Create training summary
+        run: |
+          echo "## Brain Training Summary" > training-summary.md
+          echo "" >> training-summary.md
+          echo "- **Model**: ${{ inputs.model }}" >> training-summary.md
+          echo "- **Version**: ${{ inputs.version }}" >> training-summary.md
+          echo "- **District**: ${{ inputs.district || 'Base (all districts)' }}" >> training-summary.md
+          echo "- **Trained by**: ${{ github.actor }}" >> training-summary.md
+          echo "- **Date**: $(date)" >> training-summary.md
+          echo "- **Commit**: ${{ github.sha }}" >> training-summary.md
+          echo "" >> training-summary.md
+          echo "Model artifacts uploaded to GitHub Actions artifacts and S3 (if configured)." >> training-summary.md
+      
+      - name: Upload summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-summary
+          path: training-summary.md

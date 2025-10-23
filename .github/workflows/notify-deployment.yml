@@ -1,0 +1,46 @@
+name: Deployment Notifications
+
+on:
+  deployment_status:
+
+jobs:
+  notify:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    if: github.event.deployment_status.state == 'success' || github.event.deployment_status.state == 'failure'
+    
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "${{ github.event.deployment_status.state == 'success' && '✅' || '❌' }} Deployment to ${{ github.event.deployment.environment }}",
+              attachments: [{
+                color: "${{ github.event.deployment_status.state == 'success' && 'good' || 'danger' }}",
+                fields: [
+                  {
+                    title: 'Environment',
+                    value: '${{ github.event.deployment.environment }}',
+                    short: true
+                  },
+                  {
+                    title: 'Status',
+                    value: '${{ github.event.deployment_status.state }}',
+                    short: true
+                  },
+                  {
+                    title: 'Commit',
+                    value: '${{ github.sha }}',
+                    short: true
+                  },
+                  {
+                    title: 'Deployer',
+                    value: '${{ github.actor }}',
+                    short: true
+                  }
+                ]
+              }]
+            }
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
