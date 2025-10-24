@@ -6,6 +6,7 @@ from datetime import datetime, date
 
 from app.main import app
 from app.core.database import Base, get_db
+from app.core.redis import get_redis
 from app.core.security import get_password_hash, create_access_token
 from app.models.user import User, UserRole
 from app.models.learner import Learner
@@ -27,6 +28,55 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+# ============================================================================
+# Mock Redis Client
+# ============================================================================
+class MockRedis:
+    """Mock Redis client for testing."""
+    
+    def __init__(self):
+        self.store = {}
+        self.expiry = {}
+    
+    def get(self, key: str):
+        return self.store.get(key)
+    
+    def set(self, key: str, value: str, ex: int = None):
+        self.store[key] = value
+        if ex:
+            self.expiry[key] = ex
+        return True
+    
+    def setex(self, key: str, time: int, value: str):
+        self.store[key] = value
+        self.expiry[key] = time
+        return True
+    
+    def delete(self, key: str):
+        if key in self.store:
+            del self.store[key]
+        if key in self.expiry:
+            del self.expiry[key]
+        return True
+    
+    def exists(self, key: str):
+        return key in self.store
+    
+    def incr(self, key: str, amount: int = 1):
+        current = int(self.store.get(key, 0))
+        self.store[key] = str(current + amount)
+        return int(self.store[key])
+    
+    def ttl(self, key: str):
+        return self.expiry.get(key, -1)
+
+
+@pytest.fixture
+def redis_client():
+    """Mock Redis client."""
+    return MockRedis()
+
+
 @pytest.fixture(scope="function")
 def db():
     """Create test database and tables."""
@@ -40,15 +90,19 @@ def db():
 
 
 @pytest.fixture(scope="function")
-def client(db):
-    """Create test client with database override."""
+def client(db, redis_client):
+    """Create test client with database and Redis override."""
     def override_get_db():
         try:
             yield db
         finally:
             pass
+    
+    def override_get_redis():
+        return redis_client
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_redis] = override_get_redis
 
     with TestClient(app) as test_client:
         yield test_client
@@ -538,3 +592,51 @@ def auth_headers(parent_user):
     """Generate authentication headers."""
     token = create_access_token(subject=parent_user.id)
     return {"Authorization": f"Bearer {token}"}
+
+
+# Mock External Services
+class MockOpenAI:
+    """Mock OpenAI API for testing."""
+    
+    def __init__(self):
+        self.completion_response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "Here's a helpful hint: Try breaking down the problem into smaller steps."
+                    }
+                }
+            ]
+        }
+    
+    async def create_completion(self, **kwargs):
+        """Mock completion generation."""
+        return self.completion_response
+
+
+class MockEmailService:
+    """Mock email service for testing."""
+    
+    def __init__(self):
+        self.sent_emails = []
+    
+    async def send_email(self, to: str, subject: str, body: str):
+        """Mock email sending."""
+        self.sent_emails.append({
+            "to": to,
+            "subject": subject,
+            "body": body
+        })
+        return True
+
+
+@pytest.fixture
+def mock_openai():
+    """Mock OpenAI client."""
+    return MockOpenAI()
+
+
+@pytest.fixture
+def mock_email():
+    """Mock email service."""
+    return MockEmailService()

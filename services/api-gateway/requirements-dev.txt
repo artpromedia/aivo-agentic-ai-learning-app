@@ -1,0 +1,20 @@
+# Development and Testing Dependencies
+
+# Testing Framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# HTTP Client for Testing
+httpx==0.25.2
+
+# Test Data Generation
+faker==20.1.0
+
+# Code Quality
+black==23.12.1
+ruff==0.1.9
+mypy==1.8.0
+
+# Development Tools
+ipython==8.19.0
