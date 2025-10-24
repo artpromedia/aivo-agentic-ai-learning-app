@@ -9,3 +9,6 @@ packages:
   
   # Shared Packages (UI, Types, Utils, Auth, Config)
   - 'packages/*'
+  
+  # Config Sub-packages (ESLint, TypeScript)
+  - 'packages/config/*'
