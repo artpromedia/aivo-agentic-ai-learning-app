@@ -1,0 +1,175 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Frontend dependencies (pnpm workspace)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    assignees:
+      - "artpromedia"
+    labels:
+      - "dependencies"
+      - "frontend"
+    groups:
+      # Group React ecosystem updates
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-router"
+          - "react-router-dom"
+          - "@tanstack/react-query"
+      # Group testing dependencies
+      testing:
+        patterns:
+          - "vitest"
+          - "@testing-library/*"
+          - "playwright"
+          - "@playwright/*"
+          - "msw"
+      # Group build tools
+      build-tools:
+        patterns:
+          - "vite"
+          - "typescript"
+          - "turbo"
+          - "tsup"
+      # Group linting/formatting
+      code-quality:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "prettier"
+      # Group UI dependencies
+      ui-components:
+        patterns:
+          - "@radix-ui/*"
+          - "framer-motion"
+          - "lucide-react"
+    ignore:
+      # Ignore React 18 (we're on React 19)
+      - dependency-name: "react"
+        versions: ["18.x"]
+      - dependency-name: "react-dom"
+        versions: ["18.x"]
+
+  # Backend Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/services/api-gateway"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    assignees:
+      - "artpromedia"
+    labels:
+      - "dependencies"
+      - "backend"
+    groups:
+      # Group FastAPI ecosystem
+      fastapi-ecosystem:
+        patterns:
+          - "fastapi"
+          - "uvicorn"
+          - "pydantic"
+          - "starlette"
+      # Group database dependencies
+      database:
+        patterns:
+          - "sqlalchemy"
+          - "alembic"
+          - "psycopg2-binary"
+      # Group testing dependencies
+      testing:
+        patterns:
+          - "pytest"
+          - "pytest-*"
+          - "httpx"
+          - "faker"
+      # Group AI/ML dependencies
+      ai-ml:
+        patterns:
+          - "openai"
+          - "anthropic"
+          - "langchain"
+          - "tiktoken"
+    ignore:
+      # Ignore major Python version updates (manual review needed)
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
+
+  # Mobile app dependencies (React Native)
+  - package-ecosystem: "npm"
+    directory: "/apps/mobile-student"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "mobile"
+    groups:
+      # Group React Native ecosystem
+      react-native-ecosystem:
+        patterns:
+          - "react-native"
+          - "@react-native/*"
+          - "expo"
+          - "expo-*"
+      # Group navigation
+      navigation:
+        patterns:
+          - "@react-navigation/*"
+          - "react-native-screens"
+          - "react-native-safe-area-context"
+    ignore:
+      # Expo SDK updates require coordinated upgrade
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "ci/cd"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+      - "docker"
