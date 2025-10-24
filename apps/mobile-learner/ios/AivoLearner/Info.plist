@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Identity -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Aivo Learning</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	
+	<!-- App Configuration -->
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	
+	<!-- Supported Interface Orientations -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	
+	<!-- View Controller Settings -->
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	
+	<!-- App Transport Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	
+	<!-- Camera & Media Permissions (Phase 6) -->
+	<key>NSCameraUsageDescription</key>
+	<string>Aivo Learning needs camera access to help you take photos of your homework and create learning content.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Aivo Learning needs access to your photo library to upload homework photos and save learning content.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Aivo Learning needs permission to save photos and videos to your library.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Aivo Learning needs microphone access for voice input and recording audio lessons.</string>
+	
+	<!-- Background Modes (Phase 7 & Phase 9) -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<!-- Push Notifications (Phase 7) -->
+		<string>remote-notification</string>
+		<!-- Background Sync (Phase 9) -->
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	
+	<!-- Firebase Configuration -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
+	
+	<!-- URL Schemes for Deep Linking -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.aivolearning.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aivolearning</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Universal Links -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:aivo.app</string>
+	</array>
+	
+	<!-- Privacy - Tracking (COPPA Compliance) -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This app does not track you for advertising purposes. We only collect anonymous usage data to improve the learning experience, with parental consent.</string>
+	
+	<!-- Accessibility -->
+	<key>UIAccessibilityTraits</key>
+	<string>UIAccessibilityTraitNone</string>
+	
+</dict>
+</plist>

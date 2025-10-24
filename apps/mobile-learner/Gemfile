@@ -1,0 +1,18 @@
+source 'https://rubygems.org'
+
+# You may use http://rbenv.org/ or https://rvm.io/ to install and use this version
+ruby '>= 3.0.0'
+
+# Fastlane for iOS and Android automation
+gem 'fastlane', '~> 2.220.0'
+
+# Cocoapods for iOS dependency management
+gem 'cocoapods', '~> 1.15'
+
+# Fastlane plugins
+gem 'fastlane-plugin-firebase_app_distribution'
+gem 'fastlane-plugin-increment_version_code'
+
+# Additional dependencies
+gem 'xcodeproj'
+gem 'xcode-install'

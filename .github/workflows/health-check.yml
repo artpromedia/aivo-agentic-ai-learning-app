@@ -41,6 +41,7 @@ jobs:
         if: failure()
         uses: 8398a7/action-slack@v3
         env:
+          # Required secret: SLACK_WEBHOOK_URL - Webhook URL for Slack notifications
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: ${{ job.status }}

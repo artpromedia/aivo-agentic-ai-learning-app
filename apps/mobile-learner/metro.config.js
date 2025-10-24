@@ -44,6 +44,30 @@ const config = {
         inlineRequires: true,
       },
     }),
+
+    // Production minification config
+    minifierConfig: {
+      keep_classnames: false, // Remove class names in production
+      keep_fnames: false, // Remove function names in production
+      mangle: {
+        toplevel: true, // Mangle top-level names
+      },
+      compress: {
+        drop_console: process.env.NODE_ENV === 'production', // Remove console.logs in production
+        drop_debugger: true, // Remove debugger statements
+        pure_funcs: [
+          'console.info',
+          'console.debug',
+          'console.warn',
+          'console.trace',
+        ], // Remove specific console methods
+        passes: 3, // Multiple compression passes
+      },
+      output: {
+        comments: false, // Remove all comments
+        ascii_only: true, // ASCII-only output for better compatibility
+      },
+    },
   },
 };
 

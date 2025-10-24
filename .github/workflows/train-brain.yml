@@ -42,6 +42,7 @@ jobs:
       - name: Prepare training data
         working-directory: ./services/training-service
         env:
+          # Required secret: CURRICULUM_DB_URL - Database connection string
           CURRICULUM_DB_URL: ${{ secrets.CURRICULUM_DB_URL }}
         run: |
           echo "Preparing training data from curriculum database..."
@@ -50,6 +51,7 @@ jobs:
       - name: Train model
         working-directory: ./services/training-service
         env:
+          # Required secrets: API keys for AI model providers
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
@@ -89,6 +91,7 @@ jobs:
       
       - name: Deploy model to storage
         env:
+          # Required secrets: AWS credentials for model storage
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-1

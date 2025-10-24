@@ -3,7 +3,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|react-native-paper|react-native-gesture-handler|react-native-reanimated|@react-navigation)/)',
+    'node_modules/(?!(react-native|@react-native|@react-native-vector-icons|react-native-paper|react-native-gesture-handler|react-native-reanimated|@react-navigation)/)',
   ],
   moduleNameMapper: {
     '^@components/(.*)$': '<rootDir>/src/components/$1',

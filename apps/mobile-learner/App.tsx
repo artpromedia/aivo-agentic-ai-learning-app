@@ -1,7 +1,11 @@
 /**
  * Aivo Learner - Mobile App Entry Point
  * 
- * React Native app for neurodiverse learners
+ * React Native app for neurodiverse learners with:
+ * - Grade-based theming (K5/MS/HS)
+ * - Light/Dark mode support
+ * - Comprehensive navigation architecture
+ * - Offline-first capabilities
  */
 
 import React from 'react';
@@ -11,6 +15,19 @@ import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {PaperProvider} from 'react-native-paper';
 import {NavigationContainer} from '@react-navigation/native';
 import {StyleSheet} from 'react-native';
+
+// Theme Provider
+import {ThemeProvider} from './src/theme/enhancedTheme';
+import {getThemeTypeForGrade} from './src/theme/gradeThemes';
+
+// Navigation
+import RootNavigator from './src/navigation/RootNavigator';
+import {
+  navigationRef,
+  linkingConfig,
+  onNavigationReady,
+  onNavigationStateChange,
+} from './src/navigation/navigationUtils';
 
 // Create QueryClient for TanStack Query
 const queryClient = new QueryClient({
@@ -24,16 +41,26 @@ const queryClient = new QueryClient({
 });
 
 function App(): React.JSX.Element {
+  // TODO: Get user grade from user store/profile
+  const userGrade = 'K'; // Default to K5 theme
+  const themeType = getThemeTypeForGrade(userGrade);
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <PaperProvider>
-            <NavigationContainer>
-              {/* Navigation will be added in next step */}
-              {/* <RootNavigator /> */}
-            </NavigationContainer>
-          </PaperProvider>
+          <ThemeProvider themeType={themeType}>
+            <PaperProvider>
+              <NavigationContainer
+                ref={navigationRef}
+                linking={linkingConfig}
+                onReady={onNavigationReady}
+                onStateChange={onNavigationStateChange}
+              >
+                <RootNavigator />
+              </NavigationContainer>
+            </PaperProvider>
+          </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
