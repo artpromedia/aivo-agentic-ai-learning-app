@@ -1,22 +1,79 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
+  "globalDependencies": ["**/.env.*local", ".env", ".env.local"],
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "JWT_SECRET_KEY",
+    "API_GATEWAY_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "build/**",
+        "out/**"
+      ],
+      "env": [
+        "VITE_API_URL",
+        "VITE_AUTH_URL",
+        "NEXT_PUBLIC_API_URL"
+      ]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "JWT_SECRET_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "VITE_API_URL"
+      ]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^build"],
+      "outputs": [".eslintcache"]
     },
     "type-check": {
-      "dependsOn": ["^type-check"]
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "env": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "NODE_ENV"
+      ]
+    },
+    "test:ui": {
+      "cache": false,
+      "persistent": true
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:e2e": {
+      "cache": false,
+      "dependsOn": ["build"]
+    },
+    "e2e": {
+      "cache": false,
+      "dependsOn": ["build"]
     },
     "clean": {
+      "cache": false
+    },
+    "format": {
+      "outputs": [],
       "cache": false
     }
   }

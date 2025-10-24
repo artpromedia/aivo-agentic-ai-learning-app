@@ -1,4 +1,11 @@
+# =================================================================
+# PNPM Workspace Configuration
+# Defines all packages in the Aivo AI Learning Platform monorepo
+# =================================================================
+
 packages:
+  # Frontend Applications
   - 'apps/*'
+  
+  # Shared Packages (UI, Types, Utils, Auth, Config)
   - 'packages/*'
-  - 'packages/config/*'
