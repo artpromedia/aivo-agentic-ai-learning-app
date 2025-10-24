@@ -1,12 +1,23 @@
 ﻿"""
-Authentication endpoints for PROMPT 63
+Complete Authentication API Endpoints
+Handles user registration, login, token management, and password reset
+
+Enhanced for Phase 2:
+- Redis-based rate limiting for security
+- Comprehensive error handling
+- Background task integration for emails
+- Token blacklisting for logout
+- Proper password validation
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Header, status
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, Depends, HTTPException, Header, status, BackgroundTasks
+from pydantic import BaseModel, EmailStr, Field, validator
 from sqlalchemy.orm import Session
+from redis import Redis
+
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -17,6 +28,7 @@ from app.core.security import (
 )
 from app.models.user import License, LicenseAssignment, User
 from app.services.email_service import EmailService
+from app.services.rate_limiter import check_rate_limit, reset_rate_limit
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 email_service = EmailService()
@@ -74,7 +86,25 @@ class LoginResponse(BaseModel):
 
 # Endpoint 1: Register Parent
 @router.post("/register/parent", status_code=status.HTTP_201_CREATED)
-def register_parent(data: RegisterParentRequest, db: Session = Depends(get_db)):
+async def register_parent(
+    data: RegisterParentRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Register a new parent account.
+    
+    Flow:
+    1. Check rate limiting (3 attempts per hour per email)
+    2. Validate password strength
+    3. Check if email already exists
+    4. Create user with hashed password
+    5. Send verification email in background
+    """
+    # Rate limiting: 3 registration attempts per hour per email
+    await check_rate_limit(redis, f"register:{data.email}", max_attempts=3, window=3600)
+    
     is_valid, error_msg = validate_password_strength(data.password)
     if not is_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
@@ -97,17 +127,38 @@ def register_parent(data: RegisterParentRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    try:
-        email_service.send_verification_email(data.email, data.full_name, str(user.id))
-    except Exception as e:
-        print(f"Failed to send verification email: {e}")
+    # Send verification email in background
+    background_tasks.add_task(
+        email_service.send_verification_email,
+        data.email,
+        data.full_name,
+        str(user.id)
+    )
     
     return {"message": "Parent account created successfully", "user_id": str(user.id), "email": user.email}
 
 
 # Endpoint 2: Register Teacher
 @router.post("/register/teacher", status_code=status.HTTP_201_CREATED)
-def register_teacher(data: RegisterTeacherRequest, db: Session = Depends(get_db)):
+async def register_teacher(
+    data: RegisterTeacherRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Register a new teacher account with license validation.
+    
+    Flow:
+    1. Check rate limiting
+    2. Validate license key exists and is active
+    3. Verify available seats
+    4. Create teacher account
+    5. Send verification email in background
+    """
+    # Rate limiting: 3 registration attempts per hour per email
+    await check_rate_limit(redis, f"register:{data.email}", max_attempts=3, window=3600)
+    
     is_valid, error_msg = validate_password_strength(data.password)
     if not is_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
@@ -143,10 +194,13 @@ def register_teacher(data: RegisterTeacherRequest, db: Session = Depends(get_db)
     db.commit()
     db.refresh(user)
     
-    try:
-        email_service.send_verification_email(data.email, data.full_name, str(user.id))
-    except Exception as e:
-        print(f"Failed to send verification email: {e}")
+    # Send verification email in background
+    background_tasks.add_task(
+        email_service.send_verification_email,
+        data.email,
+        data.full_name,
+        str(user.id)
+    )
     
     return {
         "message": "Teacher account created successfully",
@@ -163,12 +217,37 @@ def register_teacher(data: RegisterTeacherRequest, db: Session = Depends(get_db)
 
 # Endpoint 3: Login
 @router.post("/login", response_model=LoginResponse)
-def login(email: EmailStr, password: str, db: Session = Depends(get_db)):
+async def login(
+    email: EmailStr,
+    password: str,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Authenticate user and return JWT tokens.
+    
+    Flow:
+    1. Check rate limiting (5 attempts per 15 minutes)
+    2. Verify credentials
+    3. Check account status
+    4. Generate tokens
+    5. Store refresh token in Redis
+    6. Update last_login
+    7. Reset rate limit on success
+    """
+    # Rate limiting: 5 login attempts per 15 minutes per email
+    rate_limit_key = f"login:{email}"
+    await check_rate_limit(redis, rate_limit_key, max_attempts=5, window=900)
+    
     user = db.query(User).filter(User.email == email).first()
     if not user:
+        # Increment failed login counter
+        redis.incr(f"{rate_limit_key}:failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     
     if not verify_password(password, user.hashed_password):
+        # Increment failed login counter
+        redis.incr(f"{rate_limit_key}:failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     
     if not user.is_active:
@@ -177,8 +256,19 @@ def login(email: EmailStr, password: str, db: Session = Depends(get_db)):
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(subject=str(user.id))
     
+    # Store refresh token in Redis (7 days expiration)
+    redis.setex(
+        f"refresh_token:{str(user.id)}",
+        timedelta(days=7),
+        refresh_token
+    )
+    
     user.last_login = datetime.utcnow()
     db.commit()
+    
+    # Reset rate limit on successful login
+    reset_rate_limit(redis, rate_limit_key)
+    redis.delete(f"{rate_limit_key}:failed")
     
     redirect_url = get_redirect_url(user)
     
@@ -203,22 +293,75 @@ def get_redirect_url(user: User) -> str:
 
 # Endpoint 4: Logout
 @router.post("/logout")
-def logout(refresh_token: Optional[str] = None, db: Session = Depends(get_db)):
+async def logout(
+    authorization: str = Header(None),
+    refresh_token: Optional[str] = None,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Logout user by blacklisting their access token.
+    
+    Flow:
+    1. Decode access token
+    2. Add token to Redis blacklist
+    3. Remove refresh token from Redis
+    """
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = decode_token(token)
+            user_id = payload.get("sub")
+            
+            # Blacklist access token (30 min expiration matches token lifetime)
+            redis.setex(f"blacklist:{token}", timedelta(minutes=30), "1")
+            
+            # Remove refresh token
+            redis.delete(f"refresh_token:{user_id}")
+            
+        except Exception:
+            pass  # Continue even if token is invalid
+    
     return {"message": "Logged out successfully"}
 
 
 # Endpoint 5: Refresh Token
 @router.post("/refresh")
-def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
+async def refresh_access_token(
+    refresh_token: str,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Generate new access token using refresh token.
+    
+    Flow:
+    1. Decode refresh token
+    2. Verify token exists in Redis
+    3. Verify user still active
+    4. Generate new access token
+    """
     try:
         payload = decode_token(refresh_token)
     except HTTPException:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     
     user_id = payload.get("sub")
+    
+    # Verify refresh token in Redis
+    stored_token = redis.get(f"refresh_token:{user_id}")
+    if not stored_token or stored_token.decode() != refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
     
     access_token = create_access_token(subject=str(user.id))
     return {"access_token": access_token, "token_type": "bearer"}
