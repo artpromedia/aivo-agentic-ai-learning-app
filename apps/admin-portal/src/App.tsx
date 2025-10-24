@@ -23,6 +23,14 @@ import Licensing from './pages/Licensing';
 import SSOSync from './pages/SSOSync';
 import SLOBoard from './pages/SLOBoard';
 
+// PROMPT 64: Enhanced Licensing Pages
+import { DistrictsListPage } from './pages/Districts/DistrictsList';
+import { CreateDistrictPage } from './pages/Districts/CreateDistrict';
+import { DistrictDetailsPage } from './pages/Districts/DistrictDetails';
+import { ProvisionLicensesPage } from './pages/Districts/ProvisionLicenses';
+import { VaultDashboardPage } from './pages/Vault/VaultDashboard';
+import { LicensingAnalyticsPage } from './pages/Analytics/LicensingAnalytics';
+
 // Operations
 import FinOps from './pages/FinOps';
 import HITLOps from './pages/HITLOps';
@@ -151,6 +159,14 @@ export default function App() {
                     <Route path="/licensing" element={<Licensing />} />
                     <Route path="/sso" element={<SSOSync />} />
                     <Route path="/slo" element={<SLOBoard />} />
+                    
+                    {/* PROMPT 64: Enhanced Licensing Management */}
+                    <Route path="/licensing/districts" element={<DistrictsListPage />} />
+                    <Route path="/licensing/districts/create" element={<CreateDistrictPage />} />
+                    <Route path="/licensing/districts/:districtId" element={<DistrictDetailsPage />} />
+                    <Route path="/licensing/districts/:districtId/provision" element={<ProvisionLicensesPage />} />
+                    <Route path="/licensing/vault" element={<VaultDashboardPage />} />
+                    <Route path="/licensing/analytics" element={<LicensingAnalyticsPage />} />
                     
                     {/* Operations */}
                     <Route path="/finops" element={<FinOps />} />

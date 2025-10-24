@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@aivo/auth';
+import { PageWrapper } from '../components/PageWrapper';
 
 export default function Unauthorized() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Unauthorized() {
   };
 
   return (
+    <PageWrapper>
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
         <div className="mb-6">
@@ -45,5 +47,6 @@ export default function Unauthorized() {
         </div>
       </div>
     </div>
+    </PageWrapper>
   );
 }

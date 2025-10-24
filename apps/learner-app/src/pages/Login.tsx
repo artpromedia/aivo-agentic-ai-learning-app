@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useAuth } from '@aivo/auth';
 import { useNavigate } from 'react-router-dom';
+import { PageWrapper } from '../components/PageWrapper';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -21,6 +22,7 @@ export default function Login() {
   };
 
   return (
+    <PageWrapper>
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
@@ -91,5 +93,6 @@ export default function Login() {
         </form>
       </div>
     </div>
+    </PageWrapper>
   );
 }

@@ -1,7 +1,9 @@
 import { Card, Grid, Button, ProgressBar } from '@aivo/ui';
+import { PageWrapper } from '../components/PageWrapper';
 
 export default function Home() {
   return (
+    <PageWrapper>
     <div className="min-h-screen bg-gradient-to-br from-speech-100 to-primary-100 p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-4 text-neutral-900">
@@ -29,5 +31,6 @@ export default function Home() {
         </Grid>
       </div>
     </div>
+    </PageWrapper>
   );
 }

@@ -108,7 +108,6 @@ def run_migrations_online() -> None:
         with context.begin_transaction():  # pylint: disable=no-member
             context.run_migrations()  # pylint: disable=no-member
 
-
 if context.is_offline_mode():  # pylint: disable=no-member
     run_migrations_offline()
 else:
