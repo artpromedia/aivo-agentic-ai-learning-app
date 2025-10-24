@@ -92,7 +92,7 @@ class OCRService:
 
             # Download image
             if file_url.startswith('http'):
-                response = requests.get(file_url)
+                response = requests.get(file_url, timeout=30)
                 image = Image.open(BytesIO(response.content))
             else:
                 # Local file
@@ -145,7 +145,10 @@ class OCRService:
             response = client.document_text_detection(image=image)
 
             if response.error.message:
-                raise Exception(response.error.message)
+                error_msg = (
+                    f"Google Vision API error: {response.error.message}"
+                )
+                raise RuntimeError(error_msg)
 
             text = response.full_text_annotation.text
 
@@ -183,7 +186,7 @@ class OCRService:
 
             # Download document
             if file_url.startswith('http'):
-                response = requests.get(file_url)
+                response = requests.get(file_url, timeout=30)
                 document_bytes = response.content
             else:
                 file_path = Path(settings.UPLOAD_DIR) / file_url.lstrip('/')

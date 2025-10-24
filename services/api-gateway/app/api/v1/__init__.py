@@ -3,6 +3,7 @@ API v1 Router
 """
 from fastapi import APIRouter
 from app.api.v1 import auth  # pylint: disable=import-error
+from app.api.v1 import admin  # pylint: disable=import-error
 from app.api.v1.endpoints import (  # pylint: disable=import-error
     health,
     users,
@@ -48,3 +49,6 @@ api_router.include_router(
 api_router.include_router(
     assessments.router, prefix="/assessments", tags=["assessments"]
 )
+
+# Admin routes (requires admin role)
+api_router.include_router(admin.router)

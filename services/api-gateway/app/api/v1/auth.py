@@ -1,632 +1,413 @@
 ﻿"""
-Authentication endpoints for user registration, login, and token management.
+Authentication endpoints for PROMPT 63
 """
-from datetime import timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Header, status
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
-
-# pylint: disable=import-error
 from app.core.database import get_db
 from app.core.security import (
-    verify_password,
-    get_password_hash,
     create_access_token,
     create_refresh_token,
     decode_token,
-    validate_password_strength
+    get_password_hash,
+    validate_password_strength,
+    verify_password,
 )
-from app.core.config import settings
-from app.models.user import User
-from app.schemas.user import (
-    UserCreate,
-    UserResponse,
-    LoginRequest,
-    RefreshTokenRequest
-)
-from app.schemas.response import success_response
-from app.api.deps import get_current_user
+from app.models.user import License, LicenseAssignment, User
+from app.services.email_service import EmailService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+email_service = EmailService()
 
 
-@router.post(
-    "/register",
-    response_model=dict,
-    status_code=status.HTTP_201_CREATED
-)
-async def register(
-    user_data: UserCreate,
-    db: Session = Depends(get_db)
-):
-    """
-    Register a new user account.
+# Request Models
+class RegisterParentRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str = Field(min_length=1)
+    phone: Optional[str] = None
 
-    Creates a new user with the provided credentials and returns JWT tokens.
 
-    Args:
-        user_data: User registration data
-        db: Database session
+class RegisterTeacherRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str = Field(min_length=1)
+    license_key: str
+    phone: Optional[str] = None
+    district_name: Optional[str] = None
 
-    Returns:
-        dict: User data and authentication tokens
 
-    Raises:
-        HTTPException 400: If email already exists or password is weak
+class AddChildRequest(BaseModel):
+    first_name: str = Field(min_length=1)
+    last_name: str = Field(min_length=1)
+    date_of_birth: str
+    grade_level: int = Field(ge=0, le=12)
+    school_name: str
+    district_name: str
+    state_code: str = Field(min_length=2, max_length=2)
+    has_iep: bool = False
+    diagnoses: Optional[list[str]] = None
+    accommodations: Optional[list[str]] = None
 
-    Request Body:
-        - **email**: Valid email address (must be unique)
-        - **password**: Password (min 8 chars, uppercase, lowercase, number)
-        - **full_name**: User's full name
-        - **role**: User role (default: learner)
 
-    Response:
-        - **user**: User profile data
-        - **tokens**: JWT access token and refresh token
-    """
-    # Check if email already exists
-    existing_user = db.query(User).filter(
-        User.email == user_data.email
-    ).first()
+class AssignLicenseRequest(BaseModel):
+    license_key: str
+    first_name: str = Field(min_length=1)
+    last_name: str = Field(min_length=1)
+    date_of_birth: str
+    grade_level: int = Field(ge=0, le=12)
+    parent_email: Optional[EmailStr] = None
+    has_iep: bool = False
+    diagnoses: Optional[list[str]] = None
+    accommodations: Optional[list[str]] = None
 
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
 
-    # Validate password strength
-    is_valid, error_msg = validate_password_strength(user_data.password)
+class LoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    user_id: str
+    role: str
+    redirect_url: str
+
+
+# Endpoint 1: Register Parent
+@router.post("/register/parent", status_code=status.HTTP_201_CREATED)
+def register_parent(data: RegisterParentRequest, db: Session = Depends(get_db)):
+    is_valid, error_msg = validate_password_strength(data.password)
     if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_msg
-        )
-
-    # Create new user
-    hashed_password = get_password_hash(user_data.password)
-
-    new_user = User(
-        email=user_data.email,
-        hashed_password=hashed_password,
-        full_name=user_data.full_name,
-        role=user_data.role,
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+    
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+    
+    user = User(
+        email=data.email,
+        hashed_password=get_password_hash(data.password),
+        full_name=data.full_name,
+        phone=data.phone,
+        role="parent",
+        onboarding_status="profile_complete",
         is_active=True,
-        is_verified=False  # Requires email verification
+        is_verified=False,
     )
-
-    db.add(new_user)
+    db.add(user)
     db.commit()
-    db.refresh(new_user)
-
-    # Create tokens
-    access_token = create_access_token(subject=new_user.id)
-    new_refresh_token = create_refresh_token(subject=new_user.id)
-
-    return success_response(
-        data={
-            "user": UserResponse.model_validate(new_user).model_dump(),
-            "tokens": {
-                "access_token": access_token,
-                "refresh_token": new_refresh_token,
-                "token_type": "bearer",
-                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            },
-            "message": "User registered successfully"
-        }
-    )
-
-
-@router.post("/login", response_model=dict)
-async def login(
-    credentials: LoginRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Login with email and password.
-
-    Authenticates user credentials and returns JWT tokens.
-
-    Args:
-        credentials: Login credentials (email and password)
-        db: Database session
-
-    Returns:
-        dict: User data and authentication tokens
-
-    Raises:
-        HTTPException 401: If credentials are invalid
-        HTTPException 403: If user account is inactive
-
-    Request Body:
-        - **email**: User's email address
-        - **password**: User's password
-
-    Response:
-        - **user**: User profile data
-        - **tokens**: JWT access token and refresh token
-    """
-    # Find user
-    user = db.query(User).filter(User.email == credentials.email).first()
-
-    if not user or not verify_password(
-        credentials.password,
-        str(user.hashed_password)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
-        )
-
-    # Create tokens
-    access_token = create_access_token(subject=user.id)
-    new_refresh_token = create_refresh_token(subject=user.id)
-
-    return success_response(
-        data={
-            "user": UserResponse.model_validate(user).model_dump(),
-            "tokens": {
-                "access_token": access_token,
-                "refresh_token": new_refresh_token,
-                "token_type": "bearer",
-                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            },
-            "message": "Login successful"
-        }
-    )
-
-
-@router.post("/refresh", response_model=dict)
-async def refresh_token(
-    request: RefreshTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Refresh access token using refresh token.
-
-    Generates new access and refresh tokens using a valid refresh token.
-
-    Args:
-        request: Refresh token request
-        db: Database session
-
-    Returns:
-        dict: New access token and refresh token
-
-    Raises:
-        HTTPException 401: If refresh token is invalid or expired
-
-    Request Body:
-        - **refresh_token**: Valid refresh token from login/register
-
-    Response:
-        - **access_token**: New JWT access token
-        - **refresh_token**: New JWT refresh token
-        - **token_type**: "bearer"
-        - **expires_in**: Token expiration in seconds
-    """
+    db.refresh(user)
+    
     try:
-        payload = decode_token(request.refresh_token)
-
-        if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
-            )
-
-        user_id = payload.get("sub")
-        user = db.query(User).filter(User.id == user_id).first()
-
-        if not user or not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or inactive"
-            )
-
-        # Create new tokens
-        access_token = create_access_token(subject=user.id)
-        new_refresh_token = create_refresh_token(subject=user.id)
-
-        return success_response(
-            data={
-                "access_token": access_token,
-                "refresh_token": new_refresh_token,
-                "token_type": "bearer",
-                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-                "message": "Token refreshed successfully"
-            }
-        )
-
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token"
-        ) from exc
+        email_service.send_verification_email(data.email, data.full_name, str(user.id))
+    except Exception as e:
+        print(f"Failed to send verification email: {e}")
+    
+    return {"message": "Parent account created successfully", "user_id": str(user.id), "email": user.email}
 
 
-@router.get("/me", response_model=dict)
-async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get current authenticated user information.
+# Endpoint 2: Register Teacher
+@router.post("/register/teacher", status_code=status.HTTP_201_CREATED)
+def register_teacher(data: RegisterTeacherRequest, db: Session = Depends(get_db)):
+    is_valid, error_msg = validate_password_strength(data.password)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+    
+    license_obj = db.query(License).filter(License.license_key == data.license_key).first()
+    if not license_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid license key")
+    
+    if not license_obj.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="License is inactive")
+    
+    used_seats = db.query(LicenseAssignment).filter(LicenseAssignment.license_id == license_obj.id).count()
+    if used_seats >= license_obj.total_seats:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No available seats")
+    
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+    
+    user = User(
+        email=data.email,
+        hashed_password=get_password_hash(data.password),
+        full_name=data.full_name,
+        phone=data.phone,
+        role="teacher",
+        district_name=data.district_name or license_obj.district_name,
+        license_id=license_obj.id,
+        onboarding_status="profile_complete",
+        is_active=True,
+        is_verified=False,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    try:
+        email_service.send_verification_email(data.email, data.full_name, str(user.id))
+    except Exception as e:
+        print(f"Failed to send verification email: {e}")
+    
+    return {
+        "message": "Teacher account created successfully",
+        "user_id": str(user.id),
+        "email": user.email,
+        "license_info": {
+            "license_type": license_obj.license_type,
+            "district_name": license_obj.district_name,
+            "seats_available": license_obj.total_seats - used_seats,
+            "total_seats": license_obj.total_seats,
+        },
+    }
 
-    Returns the profile data of the currently authenticated user.
 
-    Args:
-        current_user: Current authenticated user (from JWT token)
-
-    Returns:
-        dict: User profile data
-
-    Headers:
-        - **Authorization**: Bearer {access_token}
-
-    Response:
-        User profile including:
-        - id, email, full_name, role
-        - is_active, is_verified
-        - created_at, updated_at
-    """
-    return success_response(
-        data=UserResponse.model_validate(current_user).model_dump()
+# Endpoint 3: Login
+@router.post("/login", response_model=LoginResponse)
+def login(email: EmailStr, password: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    
+    if not verify_password(password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
+    
+    access_token = create_access_token(subject=str(user.id))
+    refresh_token = create_refresh_token(subject=str(user.id))
+    
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    redirect_url = get_redirect_url(user)
+    
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=str(user.id),
+        role=user.role,
+        redirect_url=redirect_url,
     )
 
 
-@router.post("/logout", response_model=dict)
-async def logout(
-    # pylint: disable=unused-argument
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Logout current user.
+def get_redirect_url(user: User) -> str:
+    if user.role == "parent":
+        return "/onboarding/add-child" if user.onboarding_status == "profile_complete" else "https://parent.aivoai.com/dashboard"
+    elif user.role == "teacher":
+        return "/onboarding/assign-license" if user.onboarding_status == "profile_complete" else "https://teacher.aivoai.com/dashboard"
+    elif user.role == "admin":
+        return "https://admin.aivoai.com/dashboard"
+    return "/dashboard"
 
-    Note: With JWT, logout is handled client-side by deleting the token.
-    This endpoint is for consistency and future token blacklisting.
 
-    Args:
-        current_user: Current authenticated user
+# Endpoint 4: Logout
+@router.post("/logout")
+def logout(refresh_token: Optional[str] = None, db: Session = Depends(get_db)):
+    return {"message": "Logged out successfully"}
 
-    Returns:
-        dict: Success message
 
-    Headers:
-        - **Authorization**: Bearer {access_token}
+# Endpoint 5: Refresh Token
+@router.post("/refresh")
+def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
+    try:
+        payload = decode_token(refresh_token)
+    except HTTPException:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    access_token = create_access_token(subject=str(user.id))
+    return {"access_token": access_token, "token_type": "bearer"}
 
-    Future Enhancement:
-        In production, this would:
-        1. Add token to a blacklist in Redis
-        2. Set expiration to match token expiration
-        3. Check blacklist in get_current_user dependency
-    """
-    # In a production system with Redis, you would:
-    # redis_client.setex(
-    #     f"blacklist:{token}",
-    #     timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    #     "1"
-    # )
 
-    return success_response(
-        data={"message": "Successfully logged out"}
+# Endpoint 6: Get Current User
+@router.get("/me")
+def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+    
+    token = authorization.replace("Bearer ", "")
+    
+    try:
+        payload = decode_token(token)
+    except HTTPException:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role,
+        "onboarding_status": user.onboarding_status,
+        "email_verified": user.is_verified,
+        "district_name": user.district_name,
+    }
+
+
+# Endpoint 7: Add Child (Parent)
+@router.post("/parent/add-child", status_code=status.HTTP_201_CREATED)
+def add_child(data: AddChildRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    
+    token = authorization.replace("Bearer ", "")
+    payload = decode_token(token)
+    user_id = payload.get("sub")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != "parent":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only parents can add children")
+    
+    from app.models.learner import Learner
+    
+    learner = Learner(
+        first_name=data.first_name,
+        last_name=data.last_name,
+        date_of_birth=datetime.fromisoformat(data.date_of_birth),
+        grade_level=data.grade_level,
+        parent_id=user.id,
+        school_name=data.school_name,
+        district_name=data.district_name,
+        state_code=data.state_code,
+        has_iep=data.has_iep,
+        diagnoses=data.diagnoses or [],
+        accommodations=data.accommodations or [],
     )
+    
+    db.add(learner)
+    user.onboarding_status = "child_added"
+    db.commit()
+    db.refresh(learner)
+    
+    try:
+        email_service.send_welcome_email(user.email, user.full_name, learner.first_name)
+    except Exception as e:
+        print(f"Failed to send welcome email: {e}")
+    
+    return {
+        "message": "Child added successfully",
+        "learner_id": str(learner.id),
+        "assessment_id": None,
+        "redirect_url": f"/onboarding/assessment/{learner.id}",
+    }
 
 
-@router.post("/change-password", response_model=dict)
-async def change_password(
-    old_password: str,
-    new_password: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Change user password.
+# Endpoint 8: Assign License (Teacher)
+@router.post("/teacher/assign-license", status_code=status.HTTP_201_CREATED)
+def assign_license(data: AssignLicenseRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    
+    token = authorization.replace("Bearer ", "")
+    payload = decode_token(token)
+    user_id = payload.get("sub")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != "teacher":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers can assign licenses")
+    
+    license_obj = db.query(License).filter(License.license_key == data.license_key).first()
+    if not license_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid license key")
+    
+    used_seats = db.query(LicenseAssignment).filter(LicenseAssignment.license_id == license_obj.id).count()
+    if used_seats >= license_obj.total_seats:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No available seats on this license")
+    
+    from app.models.learner import Learner
+    
+    learner = Learner(
+        first_name=data.first_name,
+        last_name=data.last_name,
+        date_of_birth=datetime.fromisoformat(data.date_of_birth),
+        grade_level=data.grade_level,
+        district_name=license_obj.district_name,
+        has_iep=data.has_iep,
+        diagnoses=data.diagnoses or [],
+        accommodations=data.accommodations or [],
+    )
+    
+    db.add(learner)
+    db.flush()
+    
+    assignment = LicenseAssignment(
+        license_id=license_obj.id,
+        learner_id=learner.id,
+        teacher_id=user.id,
+    )
+    db.add(assignment)
+    
+    if user.onboarding_status == "profile_complete":
+        user.onboarding_status = "license_assigned"
+    
+    db.commit()
+    db.refresh(learner)
+    
+    return {
+        "message": "License assigned successfully",
+        "learner_id": str(learner.id),
+        "assessment_id": None,
+        "seats_remaining": license_obj.total_seats - used_seats - 1,
+        "redirect_url": f"/onboarding/assessment/{learner.id}",
+    }
 
-    Updates the password for the currently authenticated user.
 
-    Args:
-        old_password: Current password
-        new_password: New password
-        current_user: Current authenticated user
-        db: Database session
+# Endpoint 9: Verify Email
+@router.post("/verify-email/{token}")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    try:
+        payload = decode_token(token)
+    except HTTPException:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
+    
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    user.is_verified = True
+    db.commit()
+    
+    return {"message": "Email verified successfully"}
 
-    Returns:
-        dict: Success message
 
-    Raises:
-        HTTPException 400: If old password is incorrect or new password is weak
+# Endpoint 10: Request Password Reset
+@router.post("/request-password-reset")
+def request_password_reset(email: EmailStr, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return {"message": "If email exists, reset link will be sent"}
+    
+    return {"message": "If email exists, reset link will be sent"}
 
-    Headers:
-        - **Authorization**: Bearer {access_token}
 
-    Request Body:
-        - **old_password**: Current password (for verification)
-        - **new_password**: New password (must meet strength requirements)
-    """
-    # Verify old password
-    if not verify_password(old_password, str(current_user.hashed_password)):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect current password"
-        )
-
-    # Validate new password
+# Endpoint 11: Reset Password
+@router.post("/reset-password")
+def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
     is_valid, error_msg = validate_password_strength(new_password)
     if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_msg
-        )
-
-    # Check if new password is different from old
-    if old_password == new_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="New password must be different from current password"
-        )
-
-    # Update password
-    hashed_pwd = get_password_hash(new_password)
-    current_user.hashed_password = hashed_pwd  # type: ignore
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+    
+    try:
+        payload = decode_token(token)
+    except HTTPException:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
+    
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    user.hashed_password = get_password_hash(new_password)
     db.commit()
-
-    return success_response(
-        data={"message": "Password changed successfully"}
-    )
-
-
-@router.post("/forgot-password", response_model=dict)
-async def forgot_password(
-    email: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Request password reset email.
-
-    Sends password reset link to user's email if account exists.
-    Always returns success to prevent email enumeration attacks.
-
-    Args:
-        email: User's email address
-        db: Database session
-
-    Returns:
-        dict: Generic success message
-
-    Request Body:
-        - **email**: User's registered email address
-
-    Response:
-        Generic success message (same whether email exists or not)
-
-    Security:
-        - No indication whether email exists (prevents enumeration)
-        - Rate limiting recommended in production
-        - Token valid for 1 hour only
-    """
-    user = db.query(User).filter(User.email == email).first()
-
-    # Always return success to prevent email enumeration
-    if user:
-        # Generate password reset token (1 hour expiration)
-        _reset_token = create_access_token(  # noqa: F841
-            subject=user.id,
-            expires_delta=timedelta(hours=1)
-        )
-
-        # TODO: Send email with reset link  # pylint: disable=fixme
-        # In production, integrate with email service:
-        # reset_link = (
-        #     f"{settings.FRONTEND_URL}/reset-password"
-        #     f"?token={_reset_token}"
-        # )
-        # send_password_reset_email(
-        #     user.email,
-        #     user.full_name,
-        #     reset_link
-        # )
-
-        # For development, you could log the token
-        # print(f"Password reset token for {email}: {_reset_token}")
-
-    return success_response(
-        data={
-            "message": (
-                "If the email exists, a password reset link has been sent. "
-                "Please check your inbox."
-            )
-        }
-    )
-
-
-@router.post("/reset-password", response_model=dict)
-async def reset_password(
-    token: str,
-    new_password: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Reset password using reset token.
-
-    Resets user password using the token received via email.
-
-    Args:
-        token: Password reset token from email
-        new_password: New password to set
-        db: Database session
-
-    Returns:
-        dict: Success message
-
-    Raises:
-        HTTPException 400: If token is invalid or password is weak
-
-    Request Body:
-        - **token**: Password reset token from email link
-        - **new_password**: New password (must meet strength requirements)
-
-    Security:
-        - Token valid for 1 hour only
-        - Single-use recommended (implement token invalidation)
-        - Password strength validation applied
-    """
-    try:
-        payload = decode_token(token)
-        user_id = payload.get("sub")
-
-        user = db.query(User).filter(User.id == user_id).first()
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid reset token"
-            )
-
-        # Validate new password
-        is_valid, error_msg = validate_password_strength(new_password)
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
-            )
-
-        # Update password
-        hashed_pw = get_password_hash(new_password)
-        user.hashed_password = hashed_pw  # type: ignore
-        db.commit()
-
-        return success_response(
-            data={"message": "Password reset successfully. You can now login."}
-        )
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token"
-        ) from exc
-
-
-@router.post("/verify-email", response_model=dict)
-async def verify_email(
-    token: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Verify user email using verification token.
-
-    Marks user's email as verified using the token sent during registration.
-
-    Args:
-        token: Email verification token
-        db: Database session
-
-    Returns:
-        dict: Success message
-
-    Raises:
-        HTTPException 400: If token is invalid or already verified
-
-    Request Body:
-        - **token**: Email verification token from registration email
-
-    Response:
-        Success message confirming email verification
-    """
-    try:
-        payload = decode_token(token)
-        user_id = payload.get("sub")
-
-        user = db.query(User).filter(User.id == user_id).first()
-
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid verification token"
-            )
-
-        if user.is_verified:
-            return success_response(
-                data={"message": "Email already verified"}
-            )
-
-        # Mark email as verified
-        user.is_verified = True  # type: ignore
-        db.commit()
-
-        return success_response(
-            data={"message": "Email verified successfully"}
-        )
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token"
-        ) from exc
-
-
-@router.post("/resend-verification", response_model=dict)
-# pylint: disable=unused-argument
-async def resend_verification_email(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Resend email verification link.
-
-    Sends a new verification email to the current user.
-
-    Args:
-        current_user: Current authenticated user
-        db: Database session
-
-    Returns:
-        dict: Success message
-
-    Raises:
-        HTTPException 400: If email is already verified
-
-    Headers:
-        - **Authorization**: Bearer {access_token}
-
-    Response:
-        Success message confirming verification email sent
-    """
-    if current_user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already verified"
-        )
-
-    # Generate verification token
-    _verification_token = create_access_token(  # noqa: F841
-        subject=current_user.id,
-        expires_delta=timedelta(days=7)
-    )
-
-    # TODO: Send verification email  # pylint: disable=fixme
-    # In production:
-    # verify_link = (
-    #     f"{settings.FRONTEND_URL}/verify-email"
-    #     f"?token={_verification_token}"
-    # )
-    # send_verification_email(
-    #     current_user.email,
-    #     current_user.full_name,
-    #     verify_link
-    # )
-
-    return success_response(
-        data={
-            "message": "Verification email sent. Please check your inbox."
-        }
-    )
+    
+    return {"message": "Password reset successfully"}

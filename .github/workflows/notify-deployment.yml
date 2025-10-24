@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Notify Slack
         uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: custom
           custom_payload: |
@@ -43,4 +45,3 @@ jobs:
                 ]
               }]
             }
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

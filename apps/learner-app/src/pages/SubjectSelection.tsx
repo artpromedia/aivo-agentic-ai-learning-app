@@ -16,6 +16,20 @@ export function SubjectSelection() {
   const learnerTheme = (theme || 'MS').toUpperCase() as LearnerTheme;
   const subjects = getSubjectsForTheme(learnerTheme);
 
+  // Check if assessment is required (90-day check)
+  // In production, this would come from the backend API
+  const isAssessmentRequired = () => {
+    const lastAssessmentDate = localStorage.getItem('lastAssessmentDate');
+    if (!lastAssessmentDate) return true; // First time - show assessment
+    
+    const daysSinceAssessment = Math.floor(
+      (Date.now() - new Date(lastAssessmentDate).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSinceAssessment >= 90;
+  };
+
+  const showAssessment = isAssessmentRequired();
+
   // Mock progress data (in a real app, this would come from the backend)
   const getSubjectProgress = (subjectId: string) => {
     const progressData: Record<string, { progress: number; starsEarned: number }> = {
@@ -65,24 +79,27 @@ export function SubjectSelection() {
             </p>
           </div>
           <div className="flex gap-4 items-center">
-            {/* Baseline Assessment Button */}
-            <button
-              onClick={() => navigate('/assessment')}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold"
-              style={{
-                fontSize: themeConfig.fontSize.base,
-                transitionDuration: `${themeConfig.animations.duration}ms`,
-              }}
-              aria-label="Take Baseline Assessment"
-              data-testid="nav-assessment"
-            >
-              <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>🎯</span>
-              <span>Take Assessment</span>
-            </button>
+            {/* Baseline Assessment Button - Only show if required (every 90 days) */}
+            {showAssessment && (
+              <button
+                onClick={() => navigate('/assessment')}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold animate-bounce"
+                style={{
+                  fontSize: themeConfig.fontSize.base,
+                  transitionDuration: `${themeConfig.animations.duration}ms`,
+                }}
+                aria-label="Take Baseline Assessment"
+                data-testid="nav-assessment"
+                title="Assessment required! It's been 90 days since your last assessment."
+              >
+                <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>🎯</span>
+                <span>Assessment Due!</span>
+              </button>
+            )}
 
             {/* Homework Helper Button */}
             <button
-              onClick={() => navigate('/homework-helper')}
+              onClick={() => navigate('/homework-chat')}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold"
               style={{
                 fontSize: themeConfig.fontSize.base,

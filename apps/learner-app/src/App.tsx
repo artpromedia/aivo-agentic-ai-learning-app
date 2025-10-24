@@ -60,6 +60,7 @@ import { PEHealthPage as HSPEHealth } from './pages/subjects/hs/PEHealth';
 import { SubjectDetailPage } from './pages/SubjectDetail';
 import { ActivityPage } from './pages/ActivityPage';
 import HomeworkHelperPage from './pages/HomeworkHelper';
+import HomeworkChat from './pages/HomeworkChat';
 import { HomeworkSession, HomeworkInbox } from './components/HomeworkHelper';
 import { routeRegistry } from '@aivo/utils';
 
@@ -82,6 +83,7 @@ routeRegistry.registerMany([
   { path: '/activity/math', screen: 'MathActivity', title: 'Math Activity', category: 'learner', roles: ['learner'] },
   { path: '/activity/speech', screen: 'SpeechActivity', title: 'Speech Activity', category: 'learner', roles: ['learner'] },
   { path: '/rewards', screen: 'Rewards', title: 'Rewards', category: 'learner', roles: ['learner'] },
+  { path: '/homework-chat', screen: 'HomeworkChat', title: 'Homework Chat', category: 'learner', roles: ['learner'] },
   { path: '/homework-helper', screen: 'HomeworkInbox', title: 'Homework Inbox', category: 'learner', roles: ['learner'] },
   { path: '/homework-helper/new', screen: 'HomeworkHelper', title: 'New Homework Session', category: 'learner', roles: ['learner'] },
   { path: '/homework-helper/:sessionId', screen: 'HomeworkSession', title: 'Homework Session', category: 'learner', roles: ['learner'], params: { sessionId: 'string' } },
@@ -127,6 +129,7 @@ routeRegistry.registerMany([
   { path: '/demo/results', screen: 'AssessmentResults', title: 'Demo: Results', category: 'developer' },
   { path: '/demo/subjects', screen: 'SubjectSelection', title: 'Demo: Subjects', category: 'developer' },
   { path: '/demo/homework', screen: 'HomeworkHelper', title: 'Demo: Homework', category: 'developer' },
+  { path: '/demo/homework-chat', screen: 'HomeworkChat', title: 'Demo: Homework Chat', category: 'developer' },
 ]);
 
 function App() {
@@ -186,6 +189,7 @@ function App() {
           <Route path="/demo/assessment-results" element={<AssessmentResultsPage />} />
           <Route path="/demo/subjects" element={<SubjectSelection />} />
           <Route path="/demo/homework" element={<HomeworkHelperPage />} />
+          <Route path="/demo/homework-chat" element={<HomeworkChat />} />
           
           <Route path="/activity/reading" element={<ProtectedRoute allowedRoles={['learner']}><ReadingActivity /></ProtectedRoute>} />
           <Route path="/activity/math" element={<ProtectedRoute allowedRoles={['learner']}><MathActivity /></ProtectedRoute>} />
@@ -193,6 +197,7 @@ function App() {
           <Route path="/rewards" element={<ProtectedRoute allowedRoles={['learner']}><Rewards /></ProtectedRoute>} />
           
           {/* Homework Helper */}
+          <Route path="/homework-chat" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkChat /></ProtectedRoute>} />
           <Route path="/homework-helper" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkInbox learnerId="demo_learner_123" /></ProtectedRoute>} />
           <Route path="/homework-helper/new" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkHelperPage /></ProtectedRoute>} />
           <Route path="/homework-helper/:sessionId" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkSession /></ProtectedRoute>} />

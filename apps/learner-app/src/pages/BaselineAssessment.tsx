@@ -70,6 +70,9 @@ export function BaselineAssessment() {
       if (currentQuestionIndex < assessmentQuestions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
+        // Save assessment completion date (for 90-day tracking)
+        localStorage.setItem('lastAssessmentDate', new Date().toISOString());
+        
         // After assessment, clone the model based on results
         navigate('/cloning');
       }

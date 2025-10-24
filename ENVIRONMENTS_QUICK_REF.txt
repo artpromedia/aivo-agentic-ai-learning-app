@@ -1,0 +1,130 @@
+================================
+GITHUB ENVIRONMENTS QUICK SETUP
+================================
+
+🔗 GO TO: https://github.com/artpromedia/aivo-agentic-ai-learning-app/settings/environments
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OVERVIEW: Create 3 environments (Development, Staging, Production)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENVIRONMENT 1: development
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "New environment"
+2. Name: development
+3. Click "Configure environment"
+
+SETTINGS:
+☐ Deployment branches: Selected branches only → Add rule: main, develop, feature/*
+☐ Environment secrets: (none needed - uses repository secrets)
+☐ Required reviewers: (none)
+☐ Wait timer: 0 minutes
+
+Click "Save protection rules"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENVIRONMENT 2: staging
+━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "New environment"
+2. Name: staging
+3. Click "Configure environment"
+
+SETTINGS:
+☑ Deployment branches: Selected branches only → Add rule: main, release/*
+☑ Required reviewers: Add 1 reviewer (yourself or team member)
+☐ Wait timer: 0 minutes
+
+ENVIRONMENT SECRETS (Override repository secrets for staging):
+Add these:
+- DATABASE_URL → postgresql://aivo_user:staging_pass@staging-db.example.com:5432/aivo_db
+- VITE_API_URL → https://staging-api.yourdomain.com
+
+Click "Save protection rules"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENVIRONMENT 3: production
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "New environment"
+2. Name: production
+3. Click "Configure environment"
+
+SETTINGS:
+☑ Deployment branches: Selected branches only → Add rule: main ONLY
+☑ Required reviewers: Add 2 reviewers (for safety)
+☑ Wait timer: 5 minutes (gives time to cancel)
+
+ENVIRONMENT SECRETS (Override for production):
+Add these:
+- DATABASE_URL → postgresql://aivo_user:STRONG_PROD_PASS@prod-db.example.com:5432/aivo_db
+- VITE_API_URL → https://api.yourdomain.com
+- JWT_SECRET → (generate new strong secret for production)
+
+Click "Save protection rules"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QUICK CHECKLIST:
+━━━━━━━━━━━━━━━━
+
+☐ Environment "development" created
+☐ Environment "staging" created  
+☐ Environment "production" created
+☐ Production has 2 required reviewers
+☐ Production limited to main branch only
+☐ Production has 5 min wait timer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHY 3 ENVIRONMENTS?
+━━━━━━━━━━━━━━━━━━
+
+DEVELOPMENT
+- For feature branches and testing
+- No approvals needed
+- Fast iteration
+
+STAGING
+- Pre-production testing
+- 1 reviewer approval
+- Matches production setup
+
+PRODUCTION
+- Live user-facing system
+- 2 reviewer approvals
+- 5 minute wait timer
+- Extra protection
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WORKFLOW USAGE:
+━━━━━━━━━━━━━━
+
+Your workflows will use environments like this:
+
+jobs:
+  deploy-dev:
+    environment: development
+    # Runs automatically on feature branches
+    
+  deploy-staging:
+    environment: staging
+    # Requires 1 approval
+    
+  deploy-prod:
+    environment: production
+    # Requires 2 approvals + 5 min wait
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  TIME: 5-10 minutes
+
+⏭️  NEXT: Test CI/CD workflows on feature branch (todo #5)
+
+================================

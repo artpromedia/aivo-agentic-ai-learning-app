@@ -9,9 +9,9 @@
 
 -- Assessment schedules and completion tracking
 CREATE TABLE assessment_schedules (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    learner_id UUID NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
-    district_id UUID NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+    id VARCHAR(36) PRIMARY KEY DEFAULT (gen_random_uuid()::TEXT),
+    learner_id VARCHAR(36) NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
+    district_id VARCHAR(36) NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
     
     -- Assessment Type
     assessment_type VARCHAR(50) NOT NULL DEFAULT 'baseline', -- baseline, quarterly, progress_check

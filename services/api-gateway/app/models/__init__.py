@@ -15,6 +15,18 @@ from app.models.ai_provider import (
     AIProviderType,
     AIModelCapability,
 )
+from app.models.license import (
+    DistrictAccount,
+    SchoolAccount,
+    LicenseVault,
+    LicensePool,
+    LicenseV2,
+    LicenseAssignmentV2,
+    LicenseUsageLog,
+    LicenseType,
+    LicenseStatus,
+    DistrictStatus,
+)
 
 __all__ = [
     # Base
@@ -62,4 +74,16 @@ __all__ = [
     "AIProviderFallback",
     "AIProviderType",
     "AIModelCapability",
+    
+    # Licensing & Districts
+    "DistrictAccount",
+    "SchoolAccount",
+    "LicenseVault",
+    "LicensePool",
+    "LicenseV2",
+    "LicenseAssignmentV2",
+    "LicenseUsageLog",
+    "LicenseType",
+    "LicenseStatus",
+    "DistrictStatus",
 ]

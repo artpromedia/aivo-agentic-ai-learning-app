@@ -17,8 +17,16 @@
     "@aivo/types": "workspace:*",
     "@aivo/ui": "workspace:*",
     "@aivo/utils": "workspace:*",
+    "@chakra-ui/icons": "^2.1.0",
+    "@chakra-ui/react": "^2.8.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "axios": "^1.6.0",
+    "framer-motion": "^10.16.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.48.0",
+    "react-icons": "^4.11.0",
     "react-router-dom": "^6.30.1",
     "zustand": "^5.0.8"
   },
@@ -39,7 +47,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3",
-    "vite": "^7.1.11",
+    "vite": "^7.1.12",
     "vitest": "^3.2.4"
   }
 }
