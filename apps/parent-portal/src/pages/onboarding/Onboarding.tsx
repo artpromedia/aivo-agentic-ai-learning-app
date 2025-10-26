@@ -57,13 +57,13 @@ export function Onboarding() {
           date_of_birth: learnerData.dateOfBirth,
           grade_level: learnerData.grade,
           gender: learnerData.gender,
-          diagnoses: learnerData.diagnoses,
-          accommodations: learnerData.accommodations,
-          learning_strengths: learnerData.learningStrengths,
-          learning_challenges: learnerData.learningChallenges,
-          accessibility_preferences: learnerData.accessibilityPrefs,
-          has_iep: learnerData.hasIEP,
-          iep_details: learnerData.iepDetails,
+          diagnoses: learnerData.diagnoses || [],
+          accommodations: learnerData.accommodations || [],
+          learning_strengths: learnerData.learningStrengths || [],
+          learning_challenges: learnerData.learningChallenges || [],
+          accessibility_preferences: learnerData.accessibilityPrefs || {},
+          has_iep: learnerData.hasIEP || false,
+          iep_details: learnerData.iepDetails || null,
           parent_email: parentEmail,
           parent_name: parentName,
         }),
@@ -71,7 +71,21 @@ export function Onboarding() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create learner');
+        console.error('API Error Response:', errorData);
+        
+        // Format validation errors if present
+        let errorMessage = 'Failed to create learner account';
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // Pydantic validation errors
+            errorMessage = errorData.detail.map((err: any) => 
+              `${err.loc?.join('.')}: ${err.msg}`
+            ).join('\n');
+          } else {
+            errorMessage = errorData.detail;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

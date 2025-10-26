@@ -4,37 +4,35 @@ import type { StepProps } from '../EnrollmentWizard';
 export function AccessibilityStep({ data, onUpdate }: StepProps) {
   // Suggested settings based on learning profile
   const suggestedSettings = useMemo(() => {
-    const suggestions: { key: string; reason: string }[] = [];
+    const suggestionMap = new Map<string, string>();
     
     if (data.diagnoses?.includes('Dyslexia')) {
-      suggestions.push(
-        { key: 'dyslexiaFont', reason: 'Dyslexia-friendly font for easier reading' },
-        { key: 'textToSpeech', reason: 'Audio support for reading comprehension' }
-      );
+      suggestionMap.set('dyslexiaFont', 'Dyslexia-friendly font for easier reading');
+      suggestionMap.set('textToSpeech', 'Audio support for reading comprehension');
     }
     
     if (data.diagnoses?.includes('ADHD')) {
-      suggestions.push(
-        { key: 'calmMode', reason: 'Reduced visual stimulation for better focus' },
-        { key: 'reducedMotion', reason: 'Minimize distracting animations' }
-      );
+      suggestionMap.set('calmMode', 'Reduced visual stimulation for better focus');
+      suggestionMap.set('reducedMotion', 'Minimize distracting animations');
     }
     
     if (data.diagnoses?.includes('Autism Spectrum Disorder (ASD)')) {
-      suggestions.push(
-        { key: 'calmMode', reason: 'Sensory-friendly interface' },
-        { key: 'reducedMotion', reason: 'Predictable, calm visual experience' }
-      );
+      // Use Map to avoid duplicate keys
+      if (!suggestionMap.has('calmMode')) {
+        suggestionMap.set('calmMode', 'Sensory-friendly interface');
+      }
+      if (!suggestionMap.has('reducedMotion')) {
+        suggestionMap.set('reducedMotion', 'Predictable, calm visual experience');
+      }
     }
     
     if (data.diagnoses?.includes('Visual Processing Disorder')) {
-      suggestions.push(
-        { key: 'largeText', reason: 'Larger text for easier reading' },
-        { key: 'highContrast', reason: 'Better visual clarity' }
-      );
+      suggestionMap.set('largeText', 'Larger text for easier reading');
+      suggestionMap.set('highContrast', 'Better visual clarity');
     }
     
-    return suggestions;
+    // Convert Map to array
+    return Array.from(suggestionMap.entries()).map(([key, reason]) => ({ key, reason }));
   }, [data.diagnoses]);
 
   const applySuggested = () => {
