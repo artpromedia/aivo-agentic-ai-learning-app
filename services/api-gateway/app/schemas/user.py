@@ -50,7 +50,7 @@ class UserResponse(UserBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TokenResponse(BaseModel):

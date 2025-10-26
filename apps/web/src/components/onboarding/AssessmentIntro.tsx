@@ -22,7 +22,7 @@ interface AssessmentIntroProps {
 export function AssessmentIntroModal({
   isOpen,
   onClose,
-  assessmentId,
+  assessmentId: _assessmentId,
   learnerName,
   totalQuestions = 20,
   estimatedMinutes = 20
@@ -30,7 +30,7 @@ export function AssessmentIntroModal({
   const navigate = useNavigate();
 
   const handleStart = () => {
-    navigate(`/assessment/${assessmentId}`);
+    // Just close the modal - we're already on the assessment page
     onClose();
   };
 

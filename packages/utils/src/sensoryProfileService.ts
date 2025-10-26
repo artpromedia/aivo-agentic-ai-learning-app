@@ -220,9 +220,15 @@ export class SensoryProfileService {
 
     const defaultProfile = this.getDefaultProfile();
     const profile: SensoryProfile = {
+      id: `${learnerId}-${presetId}-${Date.now()}`,
       learnerId,
       createdAt: new Date(),
       updatedAt: new Date(),
+      visualPreferences: defaultProfile.visualPreferences,
+      auditoryPreferences: defaultProfile.auditoryPreferences,
+      tactilePreferences: defaultProfile.tactilePreferences,
+      interactionPreferences: defaultProfile.interactionPreferences,
+      accommodations: preset.profile.accommodations || [],
       visual: { ...defaultProfile.visual, ...preset.profile.visual },
       auditory: { ...defaultProfile.auditory, ...preset.profile.auditory },
       motor: { ...defaultProfile.motor, ...preset.profile.motor },
@@ -240,6 +246,34 @@ export class SensoryProfileService {
    */
   private getDefaultProfile(): Omit<SensoryProfile, 'learnerId' | 'createdAt' | 'updatedAt'> {
     return {
+      id: '',
+      visualPreferences: {
+        brightness: 'medium',
+        contrast: 'medium',
+        colorIntensity: 'medium',
+        animations: true,
+        fontSize: 'medium',
+        fontFamily: 'standard',
+        lineSpacing: 'normal',
+      },
+      auditoryPreferences: {
+        volume: 'medium',
+        backgroundMusic: true,
+        soundEffects: true,
+        voiceGuidance: false,
+        speechRate: 'normal',
+      },
+      tactilePreferences: {
+        vibration: false,
+        hapticFeedback: 'medium',
+      },
+      interactionPreferences: {
+        autoAdvance: false,
+        timerVisibility: true,
+        progressIndicators: true,
+        encouragementFrequency: 'medium',
+      },
+      accommodations: [],
       visual: {
         reduceAnimations: false,
         reduceMotion: false,
@@ -319,7 +353,7 @@ export class SensoryProfileService {
     const root = document.documentElement;
 
     // Visual accommodations
-    if (profile.visual.reduceAnimations || profile.visual.reduceMotion) {
+    if (profile.visual?.reduceAnimations || profile.visual?.reduceMotion) {
       root.style.setProperty('--animation-duration', '0.01ms');
       root.style.setProperty('--transition-duration', '0.01ms');
       root.classList.add('reduce-motion');
@@ -327,70 +361,70 @@ export class SensoryProfileService {
       root.classList.remove('reduce-motion');
     }
 
-    if (profile.visual.darkMode) {
+    if (profile.visual?.darkMode) {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
 
-    if (profile.visual.highContrast) {
+    if (profile.visual?.highContrast) {
       root.classList.add('high-contrast');
     } else {
       root.classList.remove('high-contrast');
     }
 
-    if (profile.visual.reducedClutter) {
+    if (profile.visual?.reducedClutter) {
       root.classList.add('reduced-clutter');
     } else {
       root.classList.remove('reduced-clutter');
     }
 
     // Font settings
-    root.style.setProperty('--font-family', this.getFontFamily(profile.visual.fontFamily));
-    root.style.setProperty('--font-size-base', this.getFontSize(profile.visual.fontSize));
-    root.style.setProperty('--line-height', this.getLineHeight(profile.visual.lineSpacing));
+    root.style.setProperty('--font-family', this.getFontFamily(profile.visual?.fontFamily || 'standard'));
+    root.style.setProperty('--font-size-base', this.getFontSize(profile.visual?.fontSize || 'medium'));
+    root.style.setProperty('--line-height', this.getLineHeight(profile.visual?.lineSpacing || 'normal'));
 
     // Color scheme
-    if (profile.visual.colorScheme !== 'default') {
+    if (profile.visual?.colorScheme && profile.visual.colorScheme !== 'default') {
       root.setAttribute('data-color-scheme', profile.visual.colorScheme);
     } else {
       root.removeAttribute('data-color-scheme');
     }
 
     // Motor accommodations
-    if (profile.motor.largerClickTargets) {
+    if (profile.motor?.largerClickTargets) {
       root.style.setProperty('--min-touch-target', '44px');
     } else {
       root.style.setProperty('--min-touch-target', '32px');
     }
 
-    if (profile.motor.increaseSpacing) {
+    if (profile.motor?.increaseSpacing) {
       root.style.setProperty('--spacing-scale', '1.5');
     } else {
       root.style.setProperty('--spacing-scale', '1');
     }
 
-    if (profile.motor.keyboardOnly) {
+    if (profile.motor?.keyboardOnly) {
       root.classList.add('keyboard-only');
     } else {
       root.classList.remove('keyboard-only');
     }
 
     // Cognitive accommodations
-    if (profile.cognitive.oneThingAtATime) {
+    if (profile.cognitive?.oneThingAtATime) {
       root.classList.add('focus-mode');
     } else {
       root.classList.remove('focus-mode');
     }
 
     // Environment
-    if (profile.environment.fullScreenMode) {
+    if (profile.environment?.fullScreenMode) {
       root.classList.add('fullscreen-mode');
     } else {
       root.classList.remove('fullscreen-mode');
     }
 
-    if (profile.environment.minimizeDistractions) {
+    if (profile.environment?.minimizeDistractions) {
       root.classList.add('minimize-distractions');
     } else {
       root.classList.remove('minimize-distractions');
@@ -427,7 +461,7 @@ export class SensoryProfileService {
     root.style.removeProperty('--spacing-scale');
   }
 
-  private getFontFamily(family: SensoryProfile['visual']['fontFamily']): string {
+  private getFontFamily(family: SensoryProfile['visualPreferences']['fontFamily']): string {
     const fonts = {
       standard: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       dyslexic: '"Comic Sans MS", "Comic Sans", cursive',
@@ -437,7 +471,7 @@ export class SensoryProfileService {
     return fonts[family];
   }
 
-  private getFontSize(size: SensoryProfile['visual']['fontSize']): string {
+  private getFontSize(size: SensoryProfile['visualPreferences']['fontSize']): string {
     const sizes = {
       small: '14px',
       medium: '16px',
@@ -447,7 +481,7 @@ export class SensoryProfileService {
     return sizes[size];
   }
 
-  private getLineHeight(spacing: SensoryProfile['visual']['lineSpacing']): string {
+  private getLineHeight(spacing: SensoryProfile['visualPreferences']['lineSpacing']): string {
     const heights = {
       normal: '1.5',
       wide: '1.8',

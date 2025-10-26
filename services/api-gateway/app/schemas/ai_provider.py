@@ -72,11 +72,13 @@ class AIProviderResponse(AIProviderBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class AIModelBase(BaseModel):
     """Base AI model schema."""
+    model_config = {"protected_namespaces": ()}
+    
     model_name: str = Field(..., min_length=1, max_length=255)
     display_name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
@@ -84,6 +86,8 @@ class AIModelBase(BaseModel):
 
 class AIModelCreate(AIModelBase):
     """Schema for creating an AI model."""
+    model_config = {"protected_namespaces": ()}
+    
     provider_id: str
     capabilities: List[AIModelCapability]
     max_context_length: int = Field(..., gt=0)
@@ -125,6 +129,8 @@ class AIModelUpdate(BaseModel):
 
 class AIModelResponse(AIModelBase):
     """Schema for AI model response."""
+    model_config = {"protected_namespaces": (), "from_attributes": True}
+    
     id: str
     provider_id: str
     capabilities: List[str]
@@ -150,9 +156,6 @@ class AIModelResponse(AIModelBase):
     last_used_at: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class AIProviderFallbackCreate(BaseModel):
@@ -193,11 +196,13 @@ class AIProviderFallbackResponse(BaseModel):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class AICompletionRequest(BaseModel):
     """Schema for AI completion request."""
+    model_config = {"protected_namespaces": ()}
+    
     prompt: str = Field(..., min_length=1)
     model_id: Optional[str] = None  # Specific model, or use default
     provider_type: Optional[AIProviderType] = None  # Or specific provider
@@ -212,6 +217,8 @@ class AICompletionRequest(BaseModel):
 
 class AICompletionResponse(BaseModel):
     """Schema for AI completion response."""
+    model_config = {"protected_namespaces": ()}
+    
     text: str
     model_used: str
     provider_used: str
