@@ -15,7 +15,8 @@ import { SelfRegulationHub } from './components/SelfRegulation';
 import { ExecutiveFunctionPage } from './pages/ExecutiveFunction';
 import { SubjectSelection } from './pages/SubjectSelection';
 import { ModelCloning } from './pages/ModelCloning';
-import { BaselineAssessment } from './pages/BaselineAssessment';
+import { BaselineAssessment } from './pages/BaselineAssessment'; // OLD - kept for backwards compatibility
+import { NewBaselineAssessment } from './pages/NewBaselineAssessment'; // NEW comprehensive assessment
 import { OnboardingAssessment } from './pages/OnboardingAssessment';
 import { SetupPin } from './pages/SetupPin';
 import { AssessmentResults } from './pages/AssessmentResults';
@@ -203,7 +204,7 @@ function App() {
             } 
           />
           <Route path="/organize" element={<LearnerProtectedRoute><ExecutiveFunctionPage /></LearnerProtectedRoute>} />
-          <Route path="/assessment" element={<LearnerProtectedRoute><BaselineAssessment /></LearnerProtectedRoute>} />
+          <Route path="/assessment" element={<LearnerProtectedRoute><NewBaselineAssessment /></LearnerProtectedRoute>} />
           <Route path="/assessment-results" element={<LearnerProtectedRoute><AssessmentResults /></LearnerProtectedRoute>} />
           <Route path="/assessment/:assessmentId/results" element={<LearnerProtectedRoute><AssessmentResultsPage /></LearnerProtectedRoute>} />
           <Route 
@@ -218,7 +219,7 @@ function App() {
           />
           
           {/* Demo Routes - No Authentication Required */}
-          <Route path="/demo/assessment" element={<BaselineAssessment />} />
+          <Route path="/demo/assessment" element={<NewBaselineAssessment />} />
           <Route path="/demo/cloning" element={<ModelCloning />} />
           <Route path="/demo/results" element={<AssessmentResults />} />
           <Route path="/demo/assessment-results" element={<AssessmentResultsPage />} />

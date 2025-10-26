@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { BaselineAssessment } from './BaselineAssessment';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { BaselineAssessment } from '../components/baseline/BaselineAssessment';
+import type { BaselineSession, GradeBand } from '../types/baseline';
 
 /**
  * Onboarding Assessment Wrapper
@@ -18,22 +19,27 @@ import { BaselineAssessment } from './BaselineAssessment';
  */
 export function OnboardingAssessment() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [learnerId, setLearnerId] = useState<string>('');
+  const [gradeBand, setGradeBand] = useState<GradeBand>('K-5'); // Default grade band
 
   useEffect(() => {
     const setupAssessment = async () => {
       try {
         // Get learner_id from URL params or localStorage
-        const learnerId = searchParams.get('learner_id') || localStorage.getItem('current_learner_id');
+        const learnerIdParam = searchParams.get('learner_id') || localStorage.getItem('current_learner_id');
         
-        if (!learnerId) {
+        if (!learnerIdParam) {
           setError('No learner ID found. Please start the onboarding process again.');
           return;
         }
 
+        setLearnerId(learnerIdParam);
+        
         // Store learner_id for the session
-        localStorage.setItem('current_learner_id', learnerId);
+        localStorage.setItem('current_learner_id', learnerIdParam);
         localStorage.setItem('onboarding_flow', 'true');
         
         // Get auth token from URL params (passed from parent portal for cross-origin auth)
@@ -55,6 +61,16 @@ export function OnboardingAssessment() {
           if (response.ok) {
             const learnerData = await response.json();
             console.log('✅ Learner data fetched successfully');
+            
+            // Determine grade band from grade level
+            const gradeLevel = learnerData.grade_level || 0;
+            let band: GradeBand = 'K-5';
+            if (gradeLevel >= 6 && gradeLevel <= 8) {
+              band = '6-8';
+            } else if (gradeLevel >= 9) {
+              band = '9-12';
+            }
+            setGradeBand(band);
             
             // Create a learner session (simplified auth for onboarding)
             localStorage.setItem('learner_profile', JSON.stringify(learnerData));
@@ -129,6 +145,35 @@ export function OnboardingAssessment() {
     );
   }
 
+  // Handle assessment completion
+  const handleComplete = (results: BaselineSession) => {
+    console.log('✅ Baseline assessment completed:', results);
+    
+    // Store results
+    localStorage.setItem('baseline_results', JSON.stringify(results));
+    localStorage.setItem('baseline_complete', 'true');
+    
+    // Check return_to parameter
+    const returnTo = searchParams.get('return_to');
+    
+    if (returnTo === 'model_cloning') {
+      // Redirect back to parent portal for model cloning
+      const parentPortalUrl = 'http://localhost:3001/#/model-cloning';
+      window.location.href = parentPortalUrl;
+    } else {
+      // Show results page
+      navigate(`/baseline/results/${results.id}`);
+    }
+  };
+
   // Render the actual assessment
-  return <BaselineAssessment />;
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <BaselineAssessment
+        learnerId={learnerId}
+        gradeBand={gradeBand}
+        onComplete={handleComplete}
+      />
+    </div>
+  );
 }
