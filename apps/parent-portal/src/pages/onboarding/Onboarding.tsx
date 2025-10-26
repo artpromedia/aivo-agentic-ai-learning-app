@@ -37,6 +37,30 @@ export function Onboarding() {
     });
     
     try {
+      // TEMPORARY: Skip API call and redirect directly to test the flow
+      const learnerId = 'temp-' + Date.now();
+      console.log('🧪 TESTING: Skipping API call, using temp learner ID:', learnerId);
+      
+      localStorage.setItem('current_learner_id', learnerId);
+      localStorage.setItem('learner_profile', JSON.stringify({
+        id: learnerId,
+        first_name: learnerData.firstName || 'Test',
+        last_name: learnerData.lastName || 'Learner',
+        grade_level: learnerData.grade || 'K',
+        accessibility_prefs: learnerData.accessibilityPrefs || {},
+      }));
+
+      const parentToken = localStorage.getItem('access_token');
+      const learnerAppUrl = `http://localhost:3004/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
+      console.log('🚀 REDIRECTING to learner app assessment:', learnerAppUrl);
+      
+      // Force immediate full page navigation to learner app
+      alert(`Testing redirect to:\n${learnerAppUrl}\n\nClick OK to continue.`);
+      window.location.href = learnerAppUrl;
+      return; // Exit early to test redirect
+      
+      // ORIGINAL CODE BELOW (commented out for testing)
+      /*
       // 1. Get authentication token
       const token = localStorage.getItem('access_token');
       
