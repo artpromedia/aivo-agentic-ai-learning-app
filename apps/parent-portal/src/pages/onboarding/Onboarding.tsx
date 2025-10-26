@@ -117,7 +117,7 @@ export function Onboarding() {
       
       // 5. Redirect to learner app for baseline assessment
       // After assessment completes, learner app will redirect back to parent portal for model cloning
-      const learnerAppUrl = `http://localhost:3003/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
+      const learnerAppUrl = `http://localhost:3004/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
       console.log('🚀 REDIRECTING to learner app assessment:', learnerAppUrl);
       
       // Force immediate full page navigation to learner app
