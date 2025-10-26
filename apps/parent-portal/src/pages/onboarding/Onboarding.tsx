@@ -14,6 +14,19 @@ export function Onboarding() {
       grade: learnerData.grade,
     });
     
+    // Validate required fields before sending
+    if (!learnerData.firstName || !learnerData.lastName || !learnerData.dateOfBirth || !learnerData.grade) {
+      const missingFields = [];
+      if (!learnerData.firstName) missingFields.push('First Name');
+      if (!learnerData.lastName) missingFields.push('Last Name');
+      if (!learnerData.dateOfBirth) missingFields.push('Date of Birth');
+      if (!learnerData.grade) missingFields.push('Grade Level');
+      
+      alert(`⚠️ Missing required fields:\n${missingFields.join('\n')}\n\nPlease go back and fill in all required information.`);
+      console.error('❌ Missing required fields:', missingFields);
+      return;
+    }
+    
     // Track enrollment completion
     analyticsService.trackEnrollmentComplete({
       hasIEP: learnerData.hasIEP,
