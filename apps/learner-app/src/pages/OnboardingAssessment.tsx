@@ -46,13 +46,13 @@ export function OnboardingAssessment() {
         // or fall back to localStorage if available
         const authToken = searchParams.get('token') || localStorage.getItem('access_token');
         
-        console.log('🔐 Setting up assessment for learner:', learnerId);
+        console.log('🔐 Setting up assessment for learner:', learnerIdParam);
         console.log('🔑 Auth token available:', !!authToken);
         
         if (authToken) {
           // Fetch learner details from backend
           console.log('📡 Fetching learner data from API...');
-          const response = await fetch(`http://localhost:9000/api/v1/learners/${learnerId}`, {
+          const response = await fetch(`http://localhost:9000/api/v1/learners/${learnerIdParam}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`
             }
@@ -75,7 +75,7 @@ export function OnboardingAssessment() {
             // Create a learner session (simplified auth for onboarding)
             localStorage.setItem('learner_profile', JSON.stringify(learnerData));
             localStorage.setItem('user_role', 'learner');
-            localStorage.setItem('user_id', learnerId);
+            localStorage.setItem('user_id', learnerIdParam);
             
             // Store the auth token temporarily for API calls during onboarding
             localStorage.setItem('onboarding_token', authToken);
@@ -85,8 +85,8 @@ export function OnboardingAssessment() {
             
             // Create a minimal user object for auth context
             const learnerUser = {
-              id: learnerId,
-              email: `learner_${learnerId}@temp.local`,
+              id: learnerIdParam,
+              email: `learner_${learnerIdParam}@temp.local`,
               firstName: learnerData.first_name,
               lastName: learnerData.last_name,
               role: 'learner',
@@ -98,11 +98,24 @@ export function OnboardingAssessment() {
             localStorage.setItem('needs_assessment', 'true');
           } else {
             console.error('❌ Failed to fetch learner data:', response.status);
-            setError('Failed to load learner information. Please try again.');
-            return;
+            // Don't fail completely - set a default grade band and continue
+            console.warn('⚠️ Using default grade band K-5');
+            setGradeBand('K-5');
+            
+            // Still set up basic learner session
+            localStorage.setItem('user_role', 'learner');
+            localStorage.setItem('user_id', learnerIdParam);
+            if (authToken) {
+              localStorage.setItem('access_token', authToken);
+            }
           }
         } else {
-          console.warn('⚠️ No auth token available - proceeding with limited functionality');
+          console.warn('⚠️ No auth token available - proceeding with default grade band K-5');
+          setGradeBand('K-5');
+          
+          // Set up basic learner session even without token
+          localStorage.setItem('user_role', 'learner');
+          localStorage.setItem('user_id', learnerIdParam);
         }
         
         setIsReady(true);
