@@ -221,6 +221,8 @@ export function EnrollmentWizard({ onComplete }: EnrollmentWizardProps) {
   const progressPercent = ((currentStep + 1) / steps.length) * 100;
 
   const handleNext = () => {
+    console.log('➡️ Moving to next step. Current data:', learnerData);
+    
     if (currentStepData.validation) {
       if (!currentStepData.validation(learnerData)) {
         console.log('❌ Validation failed for step:', currentStep);
@@ -268,7 +270,10 @@ export function EnrollmentWizard({ onComplete }: EnrollmentWizardProps) {
   };
 
   const updateData = (updates: Partial<LearnerData>) => {
-    setLearnerData({ ...learnerData, ...updates });
+    const newData = { ...learnerData, ...updates };
+    console.log('📝 Wizard data updated:', updates);
+    console.log('📊 Current wizard state:', newData);
+    setLearnerData(newData);
   };
 
   // Load saved progress on mount
