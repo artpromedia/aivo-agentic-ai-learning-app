@@ -153,7 +153,7 @@ export const handlers = [
   }),
 
   http.post(`${API_BASE}/api/v1/ai/hint`, async ({ request }) => {
-    const body = await request.json() as { question: string }
+    await request.json() as { question: string }
     return HttpResponse.json({
       hint: 'To add fractions, you need a common denominator.',
       explanation: 'The common denominator for 2 and 4 is 4.',

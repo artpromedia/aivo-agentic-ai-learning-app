@@ -13,7 +13,7 @@ export default function Login() {
     
     try {
       await login({ email, password });
-      navigate('/dashboard');
+      navigate('/'); // Navigate to root (Dashboard)
     } catch (err) {
       console.error('Login failed:', err);
     }

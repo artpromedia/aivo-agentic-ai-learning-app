@@ -18,6 +18,12 @@ function App() {
         <Route path="/features" element={<Features />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/onboarding-demo" element={<OnboardingDemo />} />
+        
+        {/* 
+          Auth & Onboarding Routes removed - redirected to portals:
+          - Signup now handled by parent portal at http://localhost:3001/signup/parent
+          - Teacher signup at http://localhost:3002/signup
+        */}
       </Routes>
     </BrowserRouter>
   );

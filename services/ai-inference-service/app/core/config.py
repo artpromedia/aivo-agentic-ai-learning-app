@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Anthropic API (alternative)
     ANTHROPIC_API_KEY: Optional[str] = None
 
+    # Google Gemini API (alternative)
+    GOOGLE_API_KEY: Optional[str] = None
+    GOOGLE_PROJECT_ID: Optional[str] = None
+
     class Config:
         env_file = ".env"
         case_sensitive = True

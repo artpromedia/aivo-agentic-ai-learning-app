@@ -1,18 +1,18 @@
 import { Button } from '@aivo/ui';
 import { CheckIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { ScheduleDemoModal } from '../modals/ScheduleDemoModal';
 
 export function Hero() {
-  const navigate = useNavigate();
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   const handleGetStarted = () => {
-    // In production, this would check if user is logged in
-    // For now, navigate to learner app onboarding - starts with assessment
-    window.location.href = 'http://localhost:3005/#/assessment';
+    // Redirect to parent portal enrollment wizard
+    window.location.href = 'http://localhost:3001/signup/parent';
   };
 
   const handleScheduleDemo = () => {
-    navigate('/contact');
+    setShowDemoModal(true);
   };
 
   return (
@@ -124,6 +124,12 @@ export function Hero() {
           </div>
         </div>
       </div>
+
+      {/* Schedule Demo Modal */}
+      <ScheduleDemoModal 
+        isOpen={showDemoModal} 
+        onClose={() => setShowDemoModal(false)} 
+      />
     </section>
   );
 }

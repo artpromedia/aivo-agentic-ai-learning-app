@@ -8,6 +8,8 @@ import { TeacherLayout } from './components/layout/TeacherLayout';
 import { Dashboard } from './pages/Dashboard';
 import { Students } from './pages/Students';
 import { StudentDetail } from './pages/StudentDetail';
+import { EnrollStudent } from './pages/EnrollStudent';
+import { StudentAssessmentPage } from './pages/StudentAssessment';
 import { IEPManagement } from './pages/IEPManagement';
 import { IEPDetail } from './pages/IEPDetail';
 import { ProgressMonitoring } from './pages/ProgressMonitoring';
@@ -34,6 +36,8 @@ function App() {
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
             <Route path="students" element={<Students />} />
+            <Route path="students/enroll" element={<EnrollStudent />} />
+            <Route path="students/assessment/:learnerId" element={<StudentAssessmentPage />} />
             <Route path="students/:id" element={<StudentDetail />} />
             <Route path="iep" element={<IEPManagement />} />
             <Route path="iep/:id" element={<IEPDetail />} />

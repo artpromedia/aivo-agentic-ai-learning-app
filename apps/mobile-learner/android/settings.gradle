@@ -1,0 +1,11 @@
+rootProject.name = 'AivoLearning'
+
+// Include the React Native Gradle Plugin
+includeBuild('../../../node_modules/@react-native/gradle-plugin')
+
+// Apply autolinking for native modules  
+apply from: file("../../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+applyNativeModulesSettingsGradle(settings)
+
+include ':app'
+

@@ -4,6 +4,7 @@ API v1 Router
 from fastapi import APIRouter
 from app.api.v1 import auth  # pylint: disable=import-error
 from app.api.v1 import admin  # pylint: disable=import-error
+from app.api.v1 import ai  # pylint: disable=import-error
 from app.api.v1.endpoints import (  # pylint: disable=import-error
     health,
     users,
@@ -16,7 +17,10 @@ from app.api.v1.endpoints import (  # pylint: disable=import-error
     regulation,
     analytics,
     assessments,
+    notifications,
 )
+from app.routers import model_cloning  # pylint: disable=import-error
+from app.routers import baseline_assessment  # pylint: disable=import-error
 
 api_router = APIRouter()
 
@@ -49,6 +53,22 @@ api_router.include_router(
 api_router.include_router(
     assessments.router, prefix="/assessments", tags=["assessments"]
 )
+api_router.include_router(
+    notifications.router, prefix="/notifications", tags=["notifications"]
+)
+
+# AI/ML routes (brain cloning, model management)
+api_router.include_router(ai.router, prefix="/ai")
+
+# Model cloning routes (explainable AI personalization)
+api_router.include_router(
+    model_cloning.router,
+    prefix="/model-cloning",
+    tags=["model-cloning"]
+)
+
+# Baseline assessment routes (adaptive IRT-based testing)
+api_router.include_router(baseline_assessment.router)
 
 # Admin routes (requires admin role)
 api_router.include_router(admin.router)

@@ -126,6 +126,23 @@ class RedisClient:
 redis_client = RedisClient()
 
 
+# Dependency injection function for FastAPI
+def get_redis() -> Optional[Redis]:
+    """
+    FastAPI dependency that provides the Redis client.
+    Used in route handlers with Depends(get_redis).
+    Returns None if Redis is not available (development mode).
+    """
+    try:
+        client = redis_client.client
+        # Test connection
+        client.ping()
+        return client
+    except Exception as e:
+        logger.warning(f"Redis not available: {e}. Running without caching/rate limiting.")
+        return None
+
+
 # Convenience functions
 def get_cache(key: str) -> Optional[dict]:
     """Get cached data."""

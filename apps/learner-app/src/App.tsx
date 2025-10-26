@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider, ProtectedRoute } from '@aivo/auth';
+import { lazy, Suspense } from 'react';
 import { ThemeProvider, LearnerErrorBoundary } from '@aivo/ui';
+import { LearnerProtectedRoute } from './components/LearnerProtectedRoute';
 import Login from './pages/Login';
 import Unauthorized from './pages/Unauthorized';
 import Profile from './pages/Profile';
@@ -15,6 +16,8 @@ import { ExecutiveFunctionPage } from './pages/ExecutiveFunction';
 import { SubjectSelection } from './pages/SubjectSelection';
 import { ModelCloning } from './pages/ModelCloning';
 import { BaselineAssessment } from './pages/BaselineAssessment';
+import { OnboardingAssessment } from './pages/OnboardingAssessment';
+import { SetupPin } from './pages/SetupPin';
 import { AssessmentResults } from './pages/AssessmentResults';
 import { AssessmentResultsPage } from './pages/Assessment/AssessmentResultsPage';
 import { ReadingActivity } from './pages/activities/Reading';
@@ -25,6 +28,23 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { GradeBasedThemeSync } from './components/GradeBasedThemeSync';
 import { ConnectivityBanner } from './components/ConnectivityBanner';
+
+// Lazy load heavy components
+const LearnerResultsPage = lazy(() =>
+  import('./pages/baseline/LearnerResultsPage').then(module => ({
+    default: module.LearnerResultsPage,
+  }))
+);
+
+// Loading component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
 
 // K5 Subject Pages
 import { MathPage as K5Math } from './pages/subjects/k5/Math';
@@ -76,9 +96,11 @@ routeRegistry.registerMany([
   { path: '/organize', screen: 'ExecutiveFunction', title: 'Executive Function', category: 'learner', roles: ['learner'] },
   { path: '/subjects', screen: 'SubjectSelection', title: 'Subject Selection', category: 'learner', roles: ['learner'] },
   { path: '/cloning', screen: 'ModelCloning', title: 'Model Cloning', category: 'learner', roles: ['learner'] },
+  { path: '/setup-pin', screen: 'SetupPin', title: 'Setup PIN', category: 'learner' },
   { path: '/assessment', screen: 'BaselineAssessment', title: 'Assessment', category: 'learner', roles: ['learner'] },
   { path: '/assessment-results', screen: 'AssessmentResults', title: 'Assessment Results', category: 'learner', roles: ['learner'] },
   { path: '/assessment/:assessmentId/results', screen: 'AssessmentResultsPage', title: 'Assessment Results Detail', category: 'learner', roles: ['learner'], params: { assessmentId: 'string' } },
+  { path: '/baseline/results/:sessionId', screen: 'LearnerResultsPage', title: 'Baseline Results', category: 'learner', roles: ['learner'], params: { sessionId: 'string' } },
   { path: '/activity/reading', screen: 'ReadingActivity', title: 'Reading Activity', category: 'learner', roles: ['learner'] },
   { path: '/activity/math', screen: 'MathActivity', title: 'Math Activity', category: 'learner', roles: ['learner'] },
   { path: '/activity/speech', screen: 'SpeechActivity', title: 'Speech Activity', category: 'learner', roles: ['learner'] },
@@ -135,7 +157,6 @@ routeRegistry.registerMany([
 function App() {
   return (
     <LearnerErrorBoundary>
-      <AuthProvider apiBaseUrl={import.meta.env.VITE_API_URL || '/api'}>
           <ThemeProvider defaultTheme="MS" persistTheme>
           <GradeBasedThemeSync />
           <HashRouter>
@@ -146,111 +167,133 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           
+          {/* Onboarding Routes - Public for new learners */}
+          <Route path="/onboarding/assessment" element={<OnboardingAssessment />} />
+          <Route path="/setup-pin" element={<SetupPin />} />
+          <Route path="/cloning" element={<ModelCloning />} />
+          <Route path="/subjects" element={<SubjectSelection />} />
+          
           {/* Dev Routes - Public for testing */}
           <Route path="/dev/routes" element={<DevRoutes />} />
           
-          {/* Protected Routes for Learners */}
-          <Route path="/" element={<ProtectedRoute allowedRoles={['learner']}><Lock /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute allowedRoles={['learner']}><Profile /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute allowedRoles={['learner']}><Settings /></ProtectedRoute>} />
+          {/* Protected Routes for Learners - Simple localStorage-based session check */}
+          <Route path="/" element={<LearnerProtectedRoute><Lock /></LearnerProtectedRoute>} />
+          <Route path="/profile" element={<LearnerProtectedRoute><Profile /></LearnerProtectedRoute>} />
+          <Route path="/settings" element={<LearnerProtectedRoute><Settings /></LearnerProtectedRoute>} />
           <Route 
             path="/sensory-profile" 
             element={
-              <ProtectedRoute allowedRoles={['learner']}>
+              <LearnerProtectedRoute>
                 <SensoryProfileSetup 
                   learnerId="demo_learner_123" 
                   onComplete={() => window.location.href = '/'} 
                 />
-              </ProtectedRoute>
+              </LearnerProtectedRoute>
             } 
           />
           <Route 
             path="/calm" 
             element={
-              <ProtectedRoute allowedRoles={['learner']}>
+              <LearnerProtectedRoute>
                 <SelfRegulationHub 
                   learnerId="demo_learner_123" 
                   onClose={() => window.location.href = '/'} 
                 />
-              </ProtectedRoute>
+              </LearnerProtectedRoute>
             } 
           />
-          <Route path="/organize" element={<ProtectedRoute allowedRoles={['learner']}><ExecutiveFunctionPage /></ProtectedRoute>} />
-          <Route path="/subjects" element={<ProtectedRoute allowedRoles={['learner']}><SubjectSelection /></ProtectedRoute>} />
-          <Route path="/cloning" element={<ProtectedRoute allowedRoles={['learner']}><ModelCloning /></ProtectedRoute>} />
-          <Route path="/assessment" element={<ProtectedRoute allowedRoles={['learner']}><BaselineAssessment /></ProtectedRoute>} />
-          <Route path="/assessment-results" element={<ProtectedRoute allowedRoles={['learner']}><AssessmentResults /></ProtectedRoute>} />
-          <Route path="/assessment/:assessmentId/results" element={<ProtectedRoute allowedRoles={['learner']}><AssessmentResultsPage /></ProtectedRoute>} />
+          <Route path="/organize" element={<LearnerProtectedRoute><ExecutiveFunctionPage /></LearnerProtectedRoute>} />
+          <Route path="/assessment" element={<LearnerProtectedRoute><BaselineAssessment /></LearnerProtectedRoute>} />
+          <Route path="/assessment-results" element={<LearnerProtectedRoute><AssessmentResults /></LearnerProtectedRoute>} />
+          <Route path="/assessment/:assessmentId/results" element={<LearnerProtectedRoute><AssessmentResultsPage /></LearnerProtectedRoute>} />
+          <Route 
+            path="/baseline/results/:sessionId" 
+            element={
+              <LearnerProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <LearnerResultsPage />
+                </Suspense>
+              </LearnerProtectedRoute>
+            } 
+          />
           
           {/* Demo Routes - No Authentication Required */}
           <Route path="/demo/assessment" element={<BaselineAssessment />} />
           <Route path="/demo/cloning" element={<ModelCloning />} />
           <Route path="/demo/results" element={<AssessmentResults />} />
           <Route path="/demo/assessment-results" element={<AssessmentResultsPage />} />
+          <Route 
+            path="/demo/baseline-results/:sessionId" 
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <LearnerResultsPage />
+              </Suspense>
+            } 
+          />
           <Route path="/demo/subjects" element={<SubjectSelection />} />
           <Route path="/demo/homework" element={<HomeworkHelperPage />} />
           <Route path="/demo/homework-chat" element={<HomeworkChat />} />
           
-          <Route path="/activity/reading" element={<ProtectedRoute allowedRoles={['learner']}><ReadingActivity /></ProtectedRoute>} />
-          <Route path="/activity/math" element={<ProtectedRoute allowedRoles={['learner']}><MathActivity /></ProtectedRoute>} />
-          <Route path="/activity/speech" element={<ProtectedRoute allowedRoles={['learner']}><SpeechActivity /></ProtectedRoute>} />
-          <Route path="/rewards" element={<ProtectedRoute allowedRoles={['learner']}><Rewards /></ProtectedRoute>} />
+          <Route path="/activity/reading" element={<LearnerProtectedRoute><ReadingActivity /></LearnerProtectedRoute>} />
+          <Route path="/activity/math" element={<LearnerProtectedRoute><MathActivity /></LearnerProtectedRoute>} />
+          <Route path="/activity/speech" element={<LearnerProtectedRoute><SpeechActivity /></LearnerProtectedRoute>} />
+          <Route path="/rewards" element={<LearnerProtectedRoute><Rewards /></LearnerProtectedRoute>} />
           
           {/* Homework Helper */}
-          <Route path="/homework-chat" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkChat /></ProtectedRoute>} />
-          <Route path="/homework-helper" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkInbox learnerId="demo_learner_123" /></ProtectedRoute>} />
-          <Route path="/homework-helper/new" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkHelperPage /></ProtectedRoute>} />
-          <Route path="/homework-helper/:sessionId" element={<ProtectedRoute allowedRoles={['learner']}><HomeworkSession /></ProtectedRoute>} />
+          <Route path="/homework-chat" element={<LearnerProtectedRoute><HomeworkChat /></LearnerProtectedRoute>} />
+          <Route path="/homework-helper" element={<LearnerProtectedRoute><HomeworkInbox learnerId="demo_learner_123" /></LearnerProtectedRoute>} />
+          <Route path="/homework-helper/new" element={<LearnerProtectedRoute><HomeworkHelperPage /></LearnerProtectedRoute>} />
+          <Route path="/homework-helper/:sessionId" element={<LearnerProtectedRoute><HomeworkSession /></LearnerProtectedRoute>} />
           
           {/* Activity Route - For individual lessons/activities */}
-          <Route path="/learner/:theme/subject/:subjectId/activity/:activityId" element={<ProtectedRoute allowedRoles={['learner']}><ActivityPage /></ProtectedRoute>} />
+          <Route path="/learner/:theme/subject/:subjectId/activity/:activityId" element={<LearnerProtectedRoute><ActivityPage /></LearnerProtectedRoute>} />
           
           {/* Subject Detail Route - Dynamic for all themes */}
-          <Route path="/learner/:theme/subject/:subjectId" element={<ProtectedRoute allowedRoles={['learner']}><SubjectDetailPage /></ProtectedRoute>} />
+          <Route path="/learner/:theme/subject/:subjectId" element={<LearnerProtectedRoute><SubjectDetailPage /></LearnerProtectedRoute>} />
           
           {/* K5 Subject Routes */}
-          <Route path="/learner/k5/math" element={<ProtectedRoute allowedRoles={['learner']}><K5Math /></ProtectedRoute>} />
-          <Route path="/learner/k5/science" element={<ProtectedRoute allowedRoles={['learner']}><K5Science /></ProtectedRoute>} />
-          <Route path="/learner/k5/reading" element={<ProtectedRoute allowedRoles={['learner']}><K5Reading /></ProtectedRoute>} />
-          <Route path="/learner/k5/writing" element={<ProtectedRoute allowedRoles={['learner']}><K5Writing /></ProtectedRoute>} />
-          <Route path="/learner/k5/socialstudies" element={<ProtectedRoute allowedRoles={['learner']}><K5SocialStudies /></ProtectedRoute>} />
-          <Route path="/learner/k5/art" element={<ProtectedRoute allowedRoles={['learner']}><K5Art /></ProtectedRoute>} />
-          <Route path="/learner/k5/music" element={<ProtectedRoute allowedRoles={['learner']}><K5Music /></ProtectedRoute>} />
-          <Route path="/learner/k5/pe" element={<ProtectedRoute allowedRoles={['learner']}><K5PE /></ProtectedRoute>} />
-          <Route path="/learner/k5/health" element={<ProtectedRoute allowedRoles={['learner']}><K5Health /></ProtectedRoute>} />
-          <Route path="/learner/k5/technology" element={<ProtectedRoute allowedRoles={['learner']}><K5Technology /></ProtectedRoute>} />
+          <Route path="/learner/k5/math" element={<LearnerProtectedRoute><K5Math /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/science" element={<LearnerProtectedRoute><K5Science /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/reading" element={<LearnerProtectedRoute><K5Reading /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/writing" element={<LearnerProtectedRoute><K5Writing /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/socialstudies" element={<LearnerProtectedRoute><K5SocialStudies /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/art" element={<LearnerProtectedRoute><K5Art /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/music" element={<LearnerProtectedRoute><K5Music /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/pe" element={<LearnerProtectedRoute><K5PE /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/health" element={<LearnerProtectedRoute><K5Health /></LearnerProtectedRoute>} />
+          <Route path="/learner/k5/technology" element={<LearnerProtectedRoute><K5Technology /></LearnerProtectedRoute>} />
           
           {/* MS Subject Routes */}
-          <Route path="/learner/ms/math" element={<ProtectedRoute allowedRoles={['learner']}><MSMath /></ProtectedRoute>} />
-          <Route path="/learner/ms/science" element={<ProtectedRoute allowedRoles={['learner']}><MSScience /></ProtectedRoute>} />
-          <Route path="/learner/ms/ela" element={<ProtectedRoute allowedRoles={['learner']}><MSELA /></ProtectedRoute>} />
-          <Route path="/learner/ms/socialstudies" element={<ProtectedRoute allowedRoles={['learner']}><MSSocialStudies /></ProtectedRoute>} />
-          <Route path="/learner/ms/worldlanguages" element={<ProtectedRoute allowedRoles={['learner']}><MSWorldLanguages /></ProtectedRoute>} />
-          <Route path="/learner/ms/arts" element={<ProtectedRoute allowedRoles={['learner']}><MSArts /></ProtectedRoute>} />
-          <Route path="/learner/ms/pehealth" element={<ProtectedRoute allowedRoles={['learner']}><MSPEHealth /></ProtectedRoute>} />
-          <Route path="/learner/ms/technologycs" element={<ProtectedRoute allowedRoles={['learner']}><MSTechnologyCS /></ProtectedRoute>} />
+          <Route path="/learner/ms/math" element={<LearnerProtectedRoute><MSMath /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/science" element={<LearnerProtectedRoute><MSScience /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/ela" element={<LearnerProtectedRoute><MSELA /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/socialstudies" element={<LearnerProtectedRoute><MSSocialStudies /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/worldlanguages" element={<LearnerProtectedRoute><MSWorldLanguages /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/arts" element={<LearnerProtectedRoute><MSArts /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/pehealth" element={<LearnerProtectedRoute><MSPEHealth /></LearnerProtectedRoute>} />
+          <Route path="/learner/ms/technologycs" element={<LearnerProtectedRoute><MSTechnologyCS /></LearnerProtectedRoute>} />
           
           {/* HS Math Routes */}
-          <Route path="/learner/hs/algebrai" element={<ProtectedRoute allowedRoles={['learner']}><AlgebraIPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/geometry" element={<ProtectedRoute allowedRoles={['learner']}><GeometryPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/algebraii" element={<ProtectedRoute allowedRoles={['learner']}><AlgebraIIPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/precalculus" element={<ProtectedRoute allowedRoles={['learner']}><PrecalculusPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/calculus" element={<ProtectedRoute allowedRoles={['learner']}><CalculusPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/algebrai" element={<LearnerProtectedRoute><AlgebraIPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/geometry" element={<LearnerProtectedRoute><GeometryPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/algebraii" element={<LearnerProtectedRoute><AlgebraIIPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/precalculus" element={<LearnerProtectedRoute><PrecalculusPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/calculus" element={<LearnerProtectedRoute><CalculusPage /></LearnerProtectedRoute>} />
           
           {/* HS Science Routes */}
-          <Route path="/learner/hs/biology" element={<ProtectedRoute allowedRoles={['learner']}><BiologyPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/chemistry" element={<ProtectedRoute allowedRoles={['learner']}><ChemistryPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/physics" element={<ProtectedRoute allowedRoles={['learner']}><PhysicsPage /></ProtectedRoute>} />
+          <Route path="/learner/hs/biology" element={<LearnerProtectedRoute><BiologyPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/chemistry" element={<LearnerProtectedRoute><ChemistryPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/physics" element={<LearnerProtectedRoute><PhysicsPage /></LearnerProtectedRoute>} />
           
           {/* HS Other Routes */}
-          <Route path="/learner/hs/ela" element={<ProtectedRoute allowedRoles={['learner']}><HSELA /></ProtectedRoute>} />
-          <Route path="/learner/hs/ushistory" element={<ProtectedRoute allowedRoles={['learner']}><USHistoryPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/worldhistory" element={<ProtectedRoute allowedRoles={['learner']}><WorldHistoryPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/govecon" element={<ProtectedRoute allowedRoles={['learner']}><GovEconPage /></ProtectedRoute>} />
-          <Route path="/learner/hs/computerscience" element={<ProtectedRoute allowedRoles={['learner']}><ComputerSciencePage /></ProtectedRoute>} />
-          <Route path="/learner/hs/worldlanguages" element={<ProtectedRoute allowedRoles={['learner']}><HSWorldLanguages /></ProtectedRoute>} />
-          <Route path="/learner/hs/arts" element={<ProtectedRoute allowedRoles={['learner']}><HSArts /></ProtectedRoute>} />
-          <Route path="/learner/hs/pehealth" element={<ProtectedRoute allowedRoles={['learner']}><HSPEHealth /></ProtectedRoute>} />
+          <Route path="/learner/hs/ela" element={<LearnerProtectedRoute><HSELA /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/ushistory" element={<LearnerProtectedRoute><USHistoryPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/worldhistory" element={<LearnerProtectedRoute><WorldHistoryPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/govecon" element={<LearnerProtectedRoute><GovEconPage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/computerscience" element={<LearnerProtectedRoute><ComputerSciencePage /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/worldlanguages" element={<LearnerProtectedRoute><HSWorldLanguages /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/arts" element={<LearnerProtectedRoute><HSArts /></LearnerProtectedRoute>} />
+          <Route path="/learner/hs/pehealth" element={<LearnerProtectedRoute><HSPEHealth /></LearnerProtectedRoute>} />
           
           {/* 404 Catch-all - Must be last and public to show 404 page */}
           <Route path="*" element={<NotFound />} />
@@ -262,9 +305,9 @@ function App() {
         <PWAInstallPrompt />
       </HashRouter>
       </ThemeProvider>
-    </AuthProvider>
     </LearnerErrorBoundary>
   );
 }
 
 export default App;
+

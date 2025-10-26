@@ -28,6 +28,8 @@ class InferenceEngine:
             return "openai"
         elif settings.ANTHROPIC_API_KEY:
             return "anthropic"
+        elif settings.GOOGLE_API_KEY:
+            return "gemini"
         else:
             logger.warning("No API keys configured, using mock responses")
             return "mock"
@@ -49,6 +51,16 @@ class InferenceEngine:
                 return AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             except ImportError:
                 logger.error("Anthropic package not installed")
+                self.provider = "mock"
+                return None
+
+        elif self.provider == "gemini":
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GOOGLE_API_KEY)
+                return genai
+            except ImportError:
+                logger.error("Google Generative AI package not installed. Install with: pip install google-generativeai")
                 self.provider = "mock"
                 return None
 
@@ -75,6 +87,13 @@ class InferenceEngine:
                 )
             elif self.provider == "anthropic":
                 response = await self._generate_anthropic(
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    top_p=top_p
+                )
+            elif self.provider == "gemini":
+                response = await self._generate_gemini(
                     prompt=prompt,
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -160,6 +179,52 @@ class InferenceEngine:
 
         except Exception as e:
             logger.error("Anthropic API error: %s", e)
+            raise
+
+    async def _generate_gemini(
+        self,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+        top_p: float
+    ) -> str:
+        """Generate using Google Gemini API."""
+        try:
+            # Build the model configuration
+            generation_config = {
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_output_tokens": max_tokens,
+            }
+            
+            # System instruction for educational context
+            system_instruction = (
+                "You are a supportive homework helper for students with "
+                "special education needs. Provide clear, encouraging, "
+                "adaptive guidance tailored to each student's learning style "
+                "and any diagnosed conditions (ADHD, ASD, Dyslexia, Anxiety). "
+                "Use age-appropriate language and be patient."
+            )
+            
+            # Initialize model (Gemini 1.5 Pro recommended for education)
+            model = self.client.GenerativeModel(
+                model_name="gemini-1.5-pro",
+                generation_config=generation_config,
+                system_instruction=system_instruction
+            )
+            
+            # Generate content
+            response = await model.generate_content_async(prompt)
+            
+            # Extract text from response
+            if response.text:
+                return response.text.strip()
+            else:
+                logger.warning("Gemini returned empty response")
+                raise ValueError("Empty response from Gemini")
+
+        except Exception as e:
+            logger.error("Gemini API error: %s", e)
             raise
 
     def _generate_mock(self, prompt: str) -> str:

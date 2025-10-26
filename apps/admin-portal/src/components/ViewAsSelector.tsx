@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { useRBAC } from '@aivo/auth';
-import { ROLE_DEFINITIONS } from '@aivo/types';
+import { ROLE_DEFINITIONS, type Role } from '@aivo/types';
+
+// UI color mapping for roles
+const ROLE_COLORS: Record<Role, string> = {
+  super_admin: 'bg-purple-100 text-purple-700',
+  district_admin: 'bg-blue-100 text-blue-700',
+  school_admin: 'bg-cyan-100 text-cyan-700',
+  teacher: 'bg-green-100 text-green-700',
+  parent: 'bg-yellow-100 text-yellow-700',
+  learner: 'bg-pink-100 text-pink-700',
+  support_staff: 'bg-orange-100 text-orange-700',
+};
 
 interface ModalProps {
   isOpen: boolean;
@@ -128,10 +139,20 @@ export const ViewAsSelector: React.FC = () => {
         <div className="flex gap-1">
           {currentUser.roles.slice(0, 2).map(role => {
             const def = ROLE_DEFINITIONS[role];
+            if (!def) {
+              return (
+                <span
+                  key={role}
+                  className="px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-700"
+                >
+                  {role}
+                </span>
+              );
+            }
             return (
               <span
                 key={role}
-                className={`px-2 py-0.5 rounded text-xs ${def.color}`}
+                className={`px-2 py-0.5 rounded text-xs ${ROLE_COLORS[role] || 'bg-neutral-100 text-neutral-700'}`}
               >
                 {def.name.split(' ')[0]}
               </span>
@@ -205,11 +226,6 @@ export const ViewAsSelector: React.FC = () => {
                           CURRENT
                         </span>
                       )}
-                      {!user.active && (
-                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">
-                          INACTIVE
-                        </span>
-                      )}
                     </div>
                     <p className="text-sm text-neutral-600 mb-2">{user.email}</p>
                     
@@ -221,10 +237,20 @@ export const ViewAsSelector: React.FC = () => {
                       ) : (
                         user.roles.map(role => {
                           const def = ROLE_DEFINITIONS[role];
+                          if (!def) {
+                            return (
+                              <span
+                                key={role}
+                                className="px-2 py-1 text-xs rounded bg-neutral-100 text-neutral-700"
+                              >
+                                {role}
+                              </span>
+                            );
+                          }
                           return (
                             <span
                               key={role}
-                              className={`px-2 py-1 text-xs rounded ${def.color}`}
+                              className={`px-2 py-1 text-xs rounded ${ROLE_COLORS[role] || 'bg-neutral-100 text-neutral-700'}`}
                             >
                               {def.name}
                             </span>

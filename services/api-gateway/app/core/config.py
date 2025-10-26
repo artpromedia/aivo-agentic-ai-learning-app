@@ -52,11 +52,15 @@ class Settings(BaseSettings):
     # CORS
     # ========================================
     CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
+        "http://localhost:3000",  # Main website
+        "http://localhost:3001",  # Parent portal
+        "http://localhost:3002",  # Teacher portal
+        "http://localhost:3003",  # Learner app
         "http://localhost:3004",
         "http://localhost:3005",
         "http://localhost:3006",
-        "http://localhost:5005",
+        "http://localhost:5005",  # District portal
+        "http://localhost:5007",  # Admin portal
         "http://localhost:5009",
     ]
     CORS_CREDENTIALS: bool = True

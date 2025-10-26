@@ -6,6 +6,11 @@ import {
 } from '@heroicons/react/24/outline';
 
 export function HowItWorks() {
+  const handleStartTrial = () => {
+    // Redirect to parent portal enrollment wizard
+    window.location.href = 'http://localhost:3001/signup/parent';
+  };
+  
   const steps = [
     {
       number: 1,
@@ -62,7 +67,11 @@ export function HowItWorks() {
 
         {/* CTA */}
         <div className="text-center">
-          <Button variant="primary" size="lg">
+          <Button 
+            variant="primary" 
+            size="lg"
+            onClick={handleStartTrial}
+          >
             Start Your Free Trial
           </Button>
           <p className="mt-4 text-sm text-neutral-600">

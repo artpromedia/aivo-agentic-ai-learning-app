@@ -102,9 +102,11 @@ export function Header() {
             <a href="#signin" className="text-sm font-medium text-neutral-700 hover:text-primary-600 transition">
               Sign In
             </a>
-            <Button variant="primary" size="sm">
-              Get Started
-            </Button>
+            <a href="http://localhost:3001/signup/parent">
+              <Button variant="primary" size="sm">
+                Get Started
+              </Button>
+            </a>
           </div>
 
           {/* Mobile Menu Button */}
@@ -170,7 +172,9 @@ export function Header() {
               
               <div className="pt-4 border-t border-neutral-200 flex flex-col gap-3">
                 <a href="#signin" className="text-sm font-medium text-center py-2 text-neutral-700">Sign In</a>
-                <Button variant="primary" size="md" className="w-full">Get Started</Button>
+                <a href="http://localhost:3001/signup/parent" className="w-full">
+                  <Button variant="primary" size="md" className="w-full">Get Started</Button>
+                </a>
               </div>
             </div>
           </div>

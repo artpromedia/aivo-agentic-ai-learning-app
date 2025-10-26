@@ -16,6 +16,42 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // React core
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+            return 'react-vendor';
+          }
+          
+          // UI/Animation libraries
+          if (id.includes('node_modules/framer-motion') || id.includes('node_modules/react-confetti')) {
+            return 'ui-vendor';
+          }
+          
+          // PDF generation
+          if (id.includes('node_modules/jspdf')) {
+            return 'pdf-vendor';
+          }
+          
+          // Other large vendor libraries
+          if (id.includes('node_modules') && !id.includes('node_modules/@aivo')) {
+            return 'vendor';
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+    sourcemap: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
+  },
   server: {
     port: 3003,
   },

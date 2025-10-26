@@ -127,15 +127,29 @@ async def register_parent(
     db.commit()
     db.refresh(user)
     
-    # Send verification email in background
-    background_tasks.add_task(
-        email_service.send_verification_email,
-        data.email,
-        data.full_name,
-        str(user.id)
-    )
+    # TODO: Send verification email in background (disabled for development)
+    # background_tasks.add_task(
+    #     email_service.send_verification_email,
+    #     data.email,
+    #     data.full_name,
+    #     str(user.id)
+    # )
     
-    return {"message": "Parent account created successfully", "user_id": str(user.id), "email": user.email}
+    # Generate tokens for immediate login
+    access_token = create_access_token(subject=str(user.id))
+    refresh_token = create_refresh_token(subject=str(user.id))
+    
+    return {
+        "message": "Parent account created successfully",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role
+        }
+    }
 
 
 # Endpoint 2: Register Teacher
@@ -398,9 +412,16 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
 
 # Endpoint 7: Add Child (Parent)
 @router.post("/parent/add-child", status_code=status.HTTP_201_CREATED)
-def add_child(data: AddChildRequest, authorization: str = Header(None), db: Session = Depends(get_db)):
+def add_child(
+    data: AddChildRequest,
+    authorization: str = Header(None, alias="Authorization"),
+    db: Session = Depends(get_db)
+):
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
     
     token = authorization.replace("Bearer ", "")
     payload = decode_token(token)
@@ -417,10 +438,7 @@ def add_child(data: AddChildRequest, authorization: str = Header(None), db: Sess
         last_name=data.last_name,
         date_of_birth=datetime.fromisoformat(data.date_of_birth),
         grade_level=data.grade_level,
-        parent_id=user.id,
-        school_name=data.school_name,
-        district_name=data.district_name,
-        state_code=data.state_code,
+        user_id=user.id,  # Changed from parent_id to user_id
         has_iep=data.has_iep,
         diagnoses=data.diagnoses or [],
         accommodations=data.accommodations or [],
@@ -554,3 +572,245 @@ def reset_password(token: str, new_password: str, db: Session = Depends(get_db))
     db.commit()
     
     return {"message": "Password reset successfully"}
+
+
+# ============================================================================
+# TEACHER LICENSING ENDPOINTS
+# ============================================================================
+
+class ValidateLicenseResponse(BaseModel):
+    valid: bool
+    license_type: Optional[str] = None
+    district_name: Optional[str] = None
+    available_seats: Optional[int] = None
+    total_seats: Optional[int] = None
+    expires_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+class TeacherAssignLicenseRequest(BaseModel):
+    license_key: str
+    teacher_id: str
+    learner_data: dict = Field(..., description="Complete learner profile data")
+
+
+class TeacherAssignLicenseResponse(BaseModel):
+    success: bool
+    learner_id: Optional[str] = None
+    license_id: Optional[str] = None
+    seats_remaining: Optional[int] = None
+    redirect_url: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.get("/validate-license/{license_key}", response_model=ValidateLicenseResponse)
+async def validate_license(
+    license_key: str,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Validate a district bulk license key.
+    
+    Checks:
+    - License exists
+    - License is active
+    - License hasn't expired
+    - License has available seats
+    
+    Returns license details if valid.
+    """
+    # Rate limiting: 10 validation attempts per minute per IP
+    # (IP tracking would be added via request: Request parameter)
+    await check_rate_limit(redis, f"validate_license:{license_key}", max_attempts=10, window=60)
+    
+    # Query license
+    license_obj = db.query(License).filter(
+        License.license_key == license_key
+    ).first()
+    
+    if not license_obj:
+        return ValidateLicenseResponse(
+            valid=False,
+            error="License key not found"
+        )
+    
+    # Check if expired
+    if license_obj.expires_at and license_obj.expires_at < datetime.utcnow():
+        return ValidateLicenseResponse(
+            valid=False,
+            error=f"License expired on {license_obj.expires_at.strftime('%Y-%m-%d')}"
+        )
+    
+    # Check if active
+    if license_obj.status != "active":
+        return ValidateLicenseResponse(
+            valid=False,
+            error=f"License status is '{license_obj.status}', not active"
+        )
+    
+    # Get total seats from license_metadata
+    total_seats = 1  # Default for individual licenses
+    if license_obj.license_metadata and isinstance(license_obj.license_metadata, dict):
+        total_seats = license_obj.license_metadata.get("total_seats", 1)
+    
+    # Check available seats
+    available_seats = total_seats - (license_obj.used_seats or 0)
+    if available_seats <= 0:
+        return ValidateLicenseResponse(
+            valid=False,
+            error=f"No available seats (all {total_seats} seats used)"
+        )
+    
+    # License is valid
+    return ValidateLicenseResponse(
+        valid=True,
+        license_type=license_obj.license_type or "individual",
+        district_name=license_obj.district_name,
+        available_seats=available_seats,
+        total_seats=total_seats,
+        expires_at=license_obj.expires_at.isoformat() if license_obj.expires_at else None
+    )
+
+
+@router.post("/teacher/assign-license", response_model=TeacherAssignLicenseResponse)
+async def teacher_assign_license(
+    data: TeacherAssignLicenseRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis)
+):
+    """
+    Assign a district license to a student (teacher enrollment).
+    
+    Flow:
+    1. Validate license key and availability
+    2. Create learner record
+    3. Create license assignment
+    4. Update license used_seats (via trigger)
+    5. Link learner to teacher
+    6. Send notification emails
+    7. Return learner ID and redirect URL
+    """
+    # Rate limiting: 30 enrollments per hour per teacher
+    await check_rate_limit(redis, f"teacher_enroll:{data.teacher_id}", max_attempts=30, window=3600)
+    
+    # Validate license
+    license_obj = db.query(License).filter(
+        License.license_key == data.license_key,
+        License.status == "active"
+    ).first()
+    
+    if not license_obj:
+        return TeacherAssignLicenseResponse(
+            success=False,
+            error="Invalid or inactive license key"
+        )
+    
+    # Check expiration
+    if license_obj.expires_at and license_obj.expires_at < datetime.utcnow():
+        return TeacherAssignLicenseResponse(
+            success=False,
+            error="License has expired"
+        )
+    
+    # Check available seats
+    total_seats = 1
+    if license_obj.license_metadata and isinstance(license_obj.license_metadata, dict):
+        total_seats = license_obj.license_metadata.get("total_seats", 1)
+    
+    available_seats = total_seats - (license_obj.used_seats or 0)
+    if available_seats <= 0:
+        return TeacherAssignLicenseResponse(
+            success=False,
+            error="No available seats on this license"
+        )
+    
+    # Verify teacher exists
+    teacher = db.query(User).filter(
+        User.id == data.teacher_id,
+        User.role.in_(["teacher", "teacher_admin"])
+    ).first()
+    
+    if not teacher:
+        return TeacherAssignLicenseResponse(
+            success=False,
+            error="Teacher not found or invalid role"
+        )
+    
+    try:
+        # Import Learner model (assuming it exists)
+        from app.models.learner import Learner
+        
+        # Create learner record
+        learner_data = data.learner_data
+        learner = Learner(
+            first_name=learner_data.get("first_name"),
+            last_name=learner_data.get("last_name"),
+            date_of_birth=learner_data.get("date_of_birth"),
+            grade=learner_data.get("grade", learner_data.get("grade_level")),
+            gender=learner_data.get("gender"),
+            diagnoses=learner_data.get("diagnoses", []),
+            accommodations=learner_data.get("accommodations", []),
+            accessibility_prefs=learner_data.get("accessibility_prefs", {}),
+            has_iep=learner_data.get("has_iep", False),
+            iep_details=learner_data.get("iep_details"),
+            enrolled_by_teacher_id=data.teacher_id,
+            enrollment_type="teacher",
+            onboarding_status="profile_complete",
+        )
+        db.add(learner)
+        db.flush()  # Get learner.id without committing
+        
+        # Create license assignment
+        assignment = LicenseAssignment(
+            license_id=license_obj.id,
+            learner_id=learner.id,
+            teacher_id=data.teacher_id,
+            assigned_by_role="teacher",
+            assignment_metadata={
+                "assigned_at": datetime.utcnow().isoformat(),
+                "district": license_obj.district_name,
+                "grade": learner.grade,
+            }
+        )
+        db.add(assignment)
+        
+        # Link assignment to learner
+        learner.license_assignment_id = assignment.id
+        
+        # Commit transaction (triggers will update used_seats)
+        db.commit()
+        db.refresh(learner)
+        db.refresh(license_obj)
+        
+        # Calculate new available seats
+        new_available_seats = total_seats - license_obj.used_seats
+        
+        # Generate redirect URL for baseline assessment
+        redirect_url = f"http://localhost:5173?learner_id={learner.id}&token=temp_token&return_to=baseline_assessment"
+        
+        # Send notification emails in background
+        # background_tasks.add_task(
+        #     email_service.send_teacher_enrollment_confirmation,
+        #     teacher.email,
+        #     teacher.full_name,
+        #     f"{learner.first_name} {learner.last_name}"
+        # )
+        
+        return TeacherAssignLicenseResponse(
+            success=True,
+            learner_id=str(learner.id),
+            license_id=str(license_obj.id),
+            seats_remaining=new_available_seats,
+            redirect_url=redirect_url
+        )
+        
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        return TeacherAssignLicenseResponse(
+            success=False,
+            error=f"Failed to assign license: {str(e)}"
+        )

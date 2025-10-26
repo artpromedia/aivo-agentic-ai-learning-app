@@ -12,8 +12,8 @@ export default function Login() {
     e.preventDefault();
     
     try {
-      await login({ email, password });
-      navigate('/dashboard');
+      await login({ email, password, userType: 'teacher' });
+      navigate('/'); // Navigate to root (Dashboard)
     } catch (err) {
       console.error('Login failed:', err);
     }

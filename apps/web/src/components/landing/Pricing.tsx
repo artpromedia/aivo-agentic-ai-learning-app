@@ -1,9 +1,20 @@
 import { CheckIcon } from '@heroicons/react/24/solid';
 import { Button } from '@aivo/ui';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { ScheduleDemoModal } from '../modals/ScheduleDemoModal';
 
 export function Pricing() {
+  const navigate = useNavigate();
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
   const handleGetStarted = () => {
-    window.location.href = 'http://localhost:3005/#/assessment';
+    // Navigate to parent registration
+    navigate('/signup/parent');
+  };
+
+  const handleScheduleDemo = () => {
+    setShowDemoModal(true);
   };
 
   return (
@@ -124,7 +135,10 @@ export function Pricing() {
             </ul>
 
             {/* CTA */}
-            <Button className="w-full bg-white hover:bg-neutral-50 text-neutral-900 border-2 border-neutral-300 py-4 text-lg font-semibold">
+            <Button 
+              className="w-full bg-white hover:bg-neutral-50 text-neutral-900 border-2 border-neutral-300 py-4 text-lg font-semibold"
+              onClick={handleScheduleDemo}
+            >
               Schedule Demo
             </Button>
             <p className="text-center text-sm text-neutral-600 mt-4">
@@ -133,6 +147,12 @@ export function Pricing() {
           </div>
         </div>
       </div>
+
+      {/* Schedule Demo Modal */}
+      <ScheduleDemoModal 
+        isOpen={showDemoModal} 
+        onClose={() => setShowDemoModal(false)} 
+      />
     </section>
   );
 }

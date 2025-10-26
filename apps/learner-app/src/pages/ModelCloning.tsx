@@ -17,6 +17,56 @@ export function ModelCloning() {
   const [currentMessage, setCurrentMessage] = useState(cloningMessages[0]);
 
   useEffect(() => {
+    const startCloning = async () => {
+      try {
+        // Get learner_id from localStorage
+        const learnerId = localStorage.getItem('current_learner_id');
+        const assessmentResults = localStorage.getItem('assessment_results');
+        
+        if (!learnerId) {
+          console.error('❌ No learner ID found');
+          return;
+        }
+
+        console.log('🧬 Starting model cloning for learner:', learnerId);
+
+        // Get auth token from onboarding flow or regular auth
+        const authToken = localStorage.getItem('onboarding_token') || localStorage.getItem('access_token');
+        
+        if (authToken && assessmentResults) {
+          console.log('📡 Calling AI brain cloning API...');
+          
+          // Send assessment results and trigger model cloning
+          const response = await fetch('http://localhost:9000/api/v1/ai/clone-model', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              learner_id: learnerId,
+              assessment_results: JSON.parse(assessmentResults)
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Model cloned successfully:', result.brain_id);
+            localStorage.setItem('brain_id', result.brain_id);
+          } else {
+            console.error('❌ Model cloning API error:', response.status);
+          }
+        } else {
+          console.warn('⚠️ Missing auth token or assessment results for model cloning');
+        }
+        
+      } catch (err) {
+        console.error('Error starting cloning:', err);
+      }
+    };
+
+    startCloning();
+
     // Simulate cloning progress
     const interval = setInterval(() => {
       setProgress((prev) => {
@@ -31,7 +81,21 @@ export function ModelCloning() {
         // Navigate when complete
         if (newProgress === 100) {
           setTimeout(() => {
-            navigate('/assessment-results');
+            // Clear onboarding flags
+            localStorage.removeItem('needs_assessment');
+            localStorage.removeItem('onboarding_flow');
+            
+            // Check if we're in onboarding flow
+            const isOnboarding = localStorage.getItem('onboarding_token');
+            
+            if (isOnboarding) {
+              // During onboarding, skip PIN setup and go to subject selection
+              console.log('🎓 Onboarding complete! Redirecting to subject selection...');
+              navigate('/subjects');
+            } else {
+              // Regular flow - go to PIN setup
+              navigate('/setup-pin');
+            }
           }, 2000);
         }
         

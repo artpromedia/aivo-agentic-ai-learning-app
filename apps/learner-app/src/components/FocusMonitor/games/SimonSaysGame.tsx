@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@aivo/ui';
 
 interface SimonSaysGameProps {
@@ -34,21 +34,7 @@ export function SimonSaysGame({ onComplete, duration = 60 }: SimonSaysGameProps)
     }
   }, [timeLeft, gameOver, score, onComplete]);
 
-  // Start game
-  useEffect(() => {
-    if (sequence.length === 0) {
-      nextRound();
-    }
-  }, []);
-
-  const nextRound = () => {
-    const newSequence = [...sequence, Math.floor(Math.random() * 4)];
-    setSequence(newSequence);
-    setPlayerSequence([]);
-    playSequence(newSequence);
-  };
-
-  const playSequence = async (seq: number[]) => {
+  const playSequence = useCallback(async (seq: number[]) => {
     setIsPlaying(true);
     for (const colorId of seq) {
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -58,7 +44,21 @@ export function SimonSaysGame({ onComplete, duration = 60 }: SimonSaysGameProps)
       await new Promise(resolve => setTimeout(resolve, 200));
     }
     setIsPlaying(false);
-  };
+  }, []);
+
+  const nextRound = useCallback(() => {
+    const newSequence = [...sequence, Math.floor(Math.random() * 4)];
+    setSequence(newSequence);
+    setPlayerSequence([]);
+    playSequence(newSequence);
+  }, [sequence, playSequence]);
+
+  // Start game
+  useEffect(() => {
+    if (sequence.length === 0) {
+      nextRound();
+    }
+  }, [sequence.length, nextRound]);
 
   const handleButtonClick = (colorId: number) => {
     if (isPlaying || gameOver) return;

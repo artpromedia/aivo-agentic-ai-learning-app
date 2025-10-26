@@ -1,10 +1,11 @@
 """
 Enhanced User model with authentication, onboarding, and license management.
 
-Updated: 2025-10-23 (PROMPT 63)
+Updated: 2025-10-26 (PROMPT 65 - Teacher Licensing)
 By: aivo-ai
 """
 import enum
+from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
@@ -119,23 +120,26 @@ class License(BaseModel):
     __tablename__ = "licenses"
 
     # License Info
-    license_id = Column(String(6), unique=True, nullable=False, index=True)
-    license_type = Column(String(50), nullable=False)  # district/school
+    license_key = Column(String(50), unique=True, nullable=False, index=True)  # Changed from license_id
+    license_type = Column(String(50), nullable=False, default="individual")  # individual/district_bulk/school_bulk/classroom
     
     # Assignment
-    district_id = Column(String(36), nullable=True)
-    district_name = Column(String(500), nullable=True)
+    district_id = Column(String(100), nullable=True)
+    district_name = Column(String(255), nullable=True)
     school_name = Column(String(500), nullable=True)
     
     # Allocation
-    total_seats = Column(Integer, nullable=False)
     used_seats = Column(Integer, default=0, nullable=False)
-    available_seats = Column(Integer, nullable=False)
     
     # Validity
-    valid_from = Column(DateTime, nullable=False)
-    valid_until = Column(DateTime, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
+    expires_at = Column(DateTime, nullable=True)  # Changed from valid_from/valid_until
+    status = Column(String(20), default="active", nullable=False)  # active/inactive/expired
+    
+    # License metadata (JSON field for flexible data)
+    license_metadata = Column("metadata", JSON, nullable=True)  # Contains total_seats, grade_levels, subjects, features
+    
+    # Created by
+    created_by_role = Column(String(20), default="parent", nullable=True)
     
     # Relationships
     assignments = relationship(
@@ -145,9 +149,12 @@ class License(BaseModel):
     )
     
     def __repr__(self):
+        total_seats = 1
+        if self.license_metadata and isinstance(self.license_metadata, dict):
+            total_seats = self.license_metadata.get("total_seats", 1)
         return (
-            f"<License {self.license_id} "
-            f"({self.used_seats}/{self.total_seats} used)>"
+            f"<License {self.license_key} "
+            f"({self.used_seats}/{total_seats} used)>"
         )
 
 
@@ -155,10 +162,10 @@ class LicenseAssignment(BaseModel):
     """Track which students are assigned to which licenses."""
     __tablename__ = "license_assignments"
 
-    # Foreign Keys
+    # Foreign Keys (using String IDs to match License model)
     license_id = Column(
-        String(6),
-        ForeignKey("licenses.license_id"),
+        String(36),
+        ForeignKey("licenses.id"),
         nullable=False,
         index=True
     )
@@ -171,17 +178,16 @@ class LicenseAssignment(BaseModel):
     teacher_id = Column(
         String(36),
         ForeignKey("users.id"),
-        nullable=False,
+        nullable=True,  # Can be null for parent enrollments
         index=True
     )
     
-    # Assignment Info
-    assigned_at = Column(DateTime, nullable=False)
-    assigned_by = Column(String(36), nullable=False)  # User ID
+    # Assignment Info  
+    assigned_at = Column(DateTime, nullable=False, default=lambda: datetime.utcnow())
+    assigned_by_role = Column(String(20), default="teacher", nullable=True)  # teacher/parent/admin
     
-    # Status
-    is_active = Column(Boolean, default=True, nullable=False)
-    deactivated_at = Column(DateTime, nullable=True)
+    # Assignment metadata (JSON field for flexible data)
+    assignment_metadata = Column("metadata", JSON, nullable=True)
     
     # Relationships
     license = relationship("License", back_populates="assignments")

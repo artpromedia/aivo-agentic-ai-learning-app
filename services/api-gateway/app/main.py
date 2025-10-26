@@ -1,15 +1,17 @@
 """
 AIVO API Gateway - Main Application Entry Point
 """
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from app.core.config import settings
-from app.core.database import engine, Base
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+
 from app.api.v1 import api_router
+from app.core.config import settings
+from app.core.database import Base, engine
 
 # Configure logging
 logging.basicConfig(
@@ -57,6 +59,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # GZip compression
@@ -64,6 +68,27 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all exceptions and ensure CORS headers are sent."""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin in settings.CORS_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error": str(exc) if settings.DEBUG else "An error occurred"
+        },
+        headers=headers
+    )
 
 
 @app.get("/health")

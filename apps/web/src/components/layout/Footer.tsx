@@ -7,9 +7,9 @@ export function Footer() {
           {/* Logo & Branding */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center mb-4">
-              {/* Same wordmark logo as header */}
+              {/* Footer logo without background */}
               <img 
-                src="/logo.svg" 
+                src="/logo-footer.svg" 
                 alt="AIVO" 
                 className="h-8"
               />

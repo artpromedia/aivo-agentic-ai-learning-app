@@ -21,12 +21,50 @@ export const HomeworkUpload: React.FC<HomeworkUploadProps> = ({
   const [pastedText, setPastedText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [processingFiles, setProcessingFiles] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const MAX_TEXT_LENGTH = 5000;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
+      setUploadError(null);
+
+      // Validate file sizes
+      const oversizedFiles = newFiles.filter(file => file.size > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        setUploadError(
+          `File too large: ${oversizedFiles[0].name} exceeds maximum size of 10MB`
+        );
+        return;
+      }
+
+      // Validate empty files
+      const emptyFiles = newFiles.filter(file => file.size === 0);
+      if (emptyFiles.length > 0) {
+        setUploadError(`Upload failed: ${emptyFiles[0].name} is empty or corrupted. Please try again.`);
+        return;
+      }
+
+      // Simulate processing state for image files (OCR)
+      newFiles.forEach(file => {
+        if (file.type.startsWith('image/')) {
+          setProcessingFiles(prev => new Set(prev).add(file.name));
+          // Simulate OCR processing
+          setTimeout(() => {
+            setProcessingFiles(prev => {
+              const next = new Set(prev);
+              next.delete(file.name);
+              return next;
+            });
+          }, 1500);
+        }
+      });
+
       setFiles([...files, ...newFiles]);
     }
   };
@@ -105,6 +143,17 @@ export const HomeworkUpload: React.FC<HomeworkUploadProps> = ({
 
   return (
     <div className="space-y-6" data-testid="homework-upload">
+      {/* Status announcements for screen readers */}
+      <div 
+        role="status" 
+        aria-live="polite" 
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {isProcessing && 'Processing your homework submission...'}
+        {files.length > 0 && !isProcessing && `${files.length} file${files.length > 1 ? 's' : ''} uploaded`}
+      </div>
+
       {/* Header */}
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">📚 Homework Helper</h1>
@@ -196,6 +245,40 @@ export const HomeworkUpload: React.FC<HomeworkUploadProps> = ({
         </Card>
       </div>
 
+      {/* Error Display */}
+      {uploadError && (
+        <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-red-800 dark:text-red-200 font-medium">
+                {uploadError}
+              </p>
+              <button
+                onClick={() => setUploadError(null)}
+                className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+                role="button"
+                aria-label="Retry upload"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Processing State */}
+      {processingFiles.size > 0 && (
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin text-2xl">⚙️</div>
+            <p className="text-blue-800 dark:text-blue-200">
+              Processing images with OCR... ({processingFiles.size} file{processingFiles.size > 1 ? 's' : ''})
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Text Input Area */}
       <Card>
         <label htmlFor="text-input" className="block mb-2 font-medium">
@@ -206,13 +289,18 @@ export const HomeworkUpload: React.FC<HomeworkUploadProps> = ({
           className="w-full h-32 px-4 py-3 border-2 rounded-xl resize-none focus:border-blue-500 focus:outline-none dark:bg-neutral-800 dark:border-neutral-700 dark:text-white"
           placeholder="Paste your homework problem or instructions here..."
           value={pastedText}
-          onChange={(e) => setPastedText(e.target.value)}
+          onChange={(e) => {
+            if (e.target.value.length <= MAX_TEXT_LENGTH) {
+              setPastedText(e.target.value);
+            }
+          }}
+          maxLength={MAX_TEXT_LENGTH}
           data-testid="homework-text-input"
           aria-label="Homework text input"
         />
         <div className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
           {pastedText.length > 0 && (
-            <span>{pastedText.length} characters</span>
+            <span>{pastedText.length} / {MAX_TEXT_LENGTH} characters</span>
           )}
         </div>
       </Card>
@@ -236,8 +324,13 @@ export const HomeworkUpload: React.FC<HomeworkUploadProps> = ({
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{file.name}</div>
-                    <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {formatFileSize(file.size)}
+                    <div className="text-xs text-neutral-600 dark:text-neutral-400 flex items-center gap-2">
+                      <span>{formatFileSize(file.size)}</span>
+                      {processingFiles.has(file.name) && (
+                        <span className="text-blue-600 dark:text-blue-400 animate-pulse">
+                          • Analyzing with OCR
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

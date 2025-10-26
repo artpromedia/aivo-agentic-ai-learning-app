@@ -4,27 +4,35 @@ apply plugin: "com.facebook.react"
 
 /**
  * AIVO Learning - Mobile Learner App
- * Android Build Configuration
+ * Android Build Configuration for React Native 0.73
  */
 
 react {
     /* Folders */
-    root = file("../../../")
-    reactNativeDir = file("../../../../node_modules/react-native")
-    codegenDir = file("../../../../node_modules/@react-native/codegen")
+    root = file("../../")
+    reactNativeDir = file("../../../node_modules/react-native")
+    codegenDir = file("../../../node_modules/@react-native/codegen")
+    cliFile = file("../../../node_modules/react-native/cli.js")
     
-    /* Variants */
+    /* Entry File */
+    entryFile = file("../../index.js")
+    
+    /* Hermes */
     hermesEnabled = true
-    enableProguardInReleaseBuilds = true
 }
 
 def enableSeparateBuildPerCPUArchitecture = false
 def enableProguardInReleaseBuilds = true
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+def reactNativeArchitectures() {
+    def value = project.getProperties().get("reactNativeArchitectures")
+    return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+}
+
 android {
     namespace "com.aivolearning.learner"
-    compileSdk 34
+    compileSdk rootProject.ext.compileSdkVersion
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
 
@@ -39,8 +47,8 @@ android {
 
     defaultConfig {
         applicationId "com.aivolearning.learner"
-        minSdkVersion 24
-        targetSdkVersion 34
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
         
@@ -49,49 +57,6 @@ android {
         
         // Vector drawable support
         vectorDrawables.useSupportLibrary = true
-        
-        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
-
-        if (isNewArchitectureEnabled()) {
-            externalNativeBuild {
-                ndkBuild {
-                    arguments "APP_PLATFORM=android-21",
-                        "APP_STL=c++_shared",
-                        "NDK_TOOLCHAIN_VERSION=clang",
-                        "GENERATED_SRC_DIR=$buildDir/generated/source",
-                        "PROJECT_BUILD_DIR=$buildDir",
-                        "REACT_ANDROID_DIR=$rootDir/../node_modules/react-native/ReactAndroid",
-                        "REACT_ANDROID_BUILD_DIR=$rootDir/../node_modules/react-native/ReactAndroid/build",
-                        "NODE_MODULES_DIR=$rootDir/../../../node_modules"
-                    cFlags "-Wall", "-Werror", "-fexceptions", "-frtti", "-DWITH_INSPECTOR=1"
-                    cppFlags "-std=c++17"
-                    targets "aivolearner_appmodules"
-                }
-            }
-        }
-    }
-
-    if (isNewArchitectureEnabled()) {
-        externalNativeBuild {
-            ndkBuild {
-                path "$projectDir/src/main/jni/Android.mk"
-            }
-        }
-        def reactAndroidProjectDir = project(':ReactAndroid').projectDir
-        def packageReactNdkDebugLibs = tasks.register("packageReactNdkDebugLibs", Copy) {
-            dependsOn(":ReactAndroid:packageReactNdkDebugLibsForBuck")
-            from("$reactAndroidProjectDir/src/main/jni/prebuilt/lib")
-            into("$buildDir/react-ndk/exported")
-        }
-        def packageReactNdkReleaseLibs = tasks.register("packageReactNdkReleaseLibs", Copy) {
-            dependsOn(":ReactAndroid:packageReactNdkReleaseLibsForBuck")
-            from("$reactAndroidProjectDir/src/main/jni/prebuilt/lib")
-            into("$buildDir/react-ndk/exported")
-        }
-        afterEvaluate {
-            preDebugBuild.dependsOn(packageReactNdkDebugLibs)
-            preReleaseBuild.dependsOn(packageReactNdkReleaseLibs)
-        }
     }
 
     signingConfigs {
@@ -100,23 +65,6 @@ android {
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
-        }
-        release {
-            if (project.hasProperty('AIVO_UPLOAD_STORE_FILE')) {
-                storeFile file(AIVO_UPLOAD_STORE_FILE)
-                storePassword AIVO_UPLOAD_STORE_PASSWORD
-                keyAlias AIVO_UPLOAD_KEY_ALIAS
-                keyPassword AIVO_UPLOAD_KEY_PASSWORD
-            } else {
-                // Use environment variables for CI/CD
-                def keystoreFile = System.getenv("KEYSTORE_FILE")
-                if (keystoreFile != null) {
-                    storeFile file(keystoreFile)
-                    storePassword System.getenv("KEYSTORE_PASSWORD")
-                    keyAlias System.getenv("KEY_ALIAS") ?: "aivo-learner"
-                    keyPassword System.getenv("KEY_PASSWORD")
-                }
-            }
         }
     }
 
@@ -129,17 +77,11 @@ android {
             shrinkResources false
         }
         release {
-            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             
-            // Performance optimizations
-            crunchPngs true // Optimize PNG files
-            
-            ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            }
+            crunchPngs true
         }
     }
 
@@ -158,39 +100,12 @@ android {
         pickFirst 'lib/armeabi-v7a/libc++_shared.so'
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
     }
-
-    sourceSets {
-        main {
-            if (isNewArchitectureEnabled()) {
-                java.srcDirs += [
-                    "src/main/java",
-                    "${project.buildDir}/generated/source/codegen/java"
-                ]
-            } else {
-                java.srcDirs += [
-                    "src/main/java"
-                ]
-            }
-        }
-    }
-
-    applicationVariants.all { variant ->
-        variant.outputs.each { output ->
-            def versionCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86": 3, "x86_64": 4]
-            def abi = output.getFilter(com.android.build.OutputFile.ABI)
-            if (abi != null) {
-                output.versionCodeOverride =
-                    defaultConfig.versionCode * 1000 + versionCodes.get(abi)
-            }
-        }
-    }
 }
 
 dependencies {
     // React Native
     implementation("com.facebook.react:react-android")
-    implementation("com.facebook.react:flipper-integration")
-
+    
     // Hermes
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
@@ -205,20 +120,9 @@ dependencies {
 
     // Multidex
     implementation 'androidx.multidex:multidex:2.0.1'
-
-    // Debug dependencies
-    debugImplementation("com.facebook.flipper:flipper:${FLIPPER_VERSION}")
-    debugImplementation("com.facebook.flipper:flipper-network-plugin:${FLIPPER_VERSION}") {
-        exclude group:'com.squareup.okhttp3', module:'okhttp'
-    }
-    debugImplementation("com.facebook.flipper:flipper-fresco-plugin:${FLIPPER_VERSION}")
 }
 
-if (isNewArchitectureEnabled()) {
-    react {
-        libraryName = "aivolearner_appmodules"
-        codegenJavaPackageName = "com.aivolearning.learner"
-    }
-}
+// Apply autolinking for native modules
+apply from: file("../../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+applyNativeModulesAppBuildGradle(project)
 
-apply from: file("../../../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

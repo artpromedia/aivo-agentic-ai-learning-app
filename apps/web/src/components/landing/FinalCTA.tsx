@@ -1,15 +1,17 @@
 import { CheckIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { ScheduleDemoModal } from '../modals/ScheduleDemoModal';
 
 export function FinalCTA() {
-  const navigate = useNavigate();
+  const [showDemoModal, setShowDemoModal] = useState(false);
 
   const handleGetStarted = () => {
-    window.location.href = 'http://localhost:3005/#/assessment';
+    // Redirect to parent portal enrollment wizard
+    window.location.href = 'http://localhost:3001/signup/parent';
   };
 
   const handleScheduleDemo = () => {
-    navigate('/contact');
+    setShowDemoModal(true);
   };
 
   return (
@@ -57,6 +59,12 @@ export function FinalCTA() {
           </div>
         </div>
       </div>
+
+      {/* Schedule Demo Modal */}
+      <ScheduleDemoModal 
+        isOpen={showDemoModal} 
+        onClose={() => setShowDemoModal(false)} 
+      />
     </section>
   );
 }

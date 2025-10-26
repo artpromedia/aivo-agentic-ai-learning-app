@@ -31,9 +31,12 @@ export function Students() {
           <h1 className="text-3xl font-bold text-neutral-900">My Students</h1>
           <p className="text-neutral-600 mt-1">Manage your classroom roster and student progress</p>
         </div>
-        <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition-all">
+        <Link 
+          to="/students/enroll"
+          className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition-all"
+        >
           + Add Student
-        </button>
+        </Link>
       </div>
 
       {/* Filters and Search */}

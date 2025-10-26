@@ -5,13 +5,14 @@ Implements sliding window algorithm for rate limiting
 from datetime import timedelta
 from fastapi import HTTPException, status
 from redis import Redis
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 async def check_rate_limit(
-    redis: Redis,
+    redis: Optional[Redis],
     key: str,
     max_attempts: int = 5,
     window: int = 3600  # seconds
@@ -20,7 +21,7 @@ async def check_rate_limit(
     Check if rate limit has been exceeded.
     
     Args:
-        redis: Redis client instance
+        redis: Redis client instance (None to skip rate limiting)
         key: Rate limit key (e.g., "login:user@example.com")
         max_attempts: Maximum number of attempts allowed
         window: Time window in seconds
@@ -31,6 +32,11 @@ async def check_rate_limit(
     Example:
         await check_rate_limit(redis, f"login:{email}", max_attempts=5, window=900)
     """
+    # Skip rate limiting if Redis is not available (development mode)
+    if redis is None:
+        logger.debug(f"Rate limiting skipped for {key} (Redis not available)")
+        return
+    
     try:
         # Get current attempt count
         current = redis.get(key)
@@ -71,18 +77,21 @@ async def check_rate_limit(
         pass
 
 
-def reset_rate_limit(redis: Redis, key: str) -> None:
+def reset_rate_limit(redis: Optional[Redis], key: str) -> None:
     """
     Reset rate limit counter for a given key.
     Useful after successful authentication.
     
     Args:
-        redis: Redis client instance
+        redis: Redis client instance (None to skip)
         key: Rate limit key to reset
         
     Example:
         reset_rate_limit(redis, f"login:{email}")
     """
+    if redis is None:
+        return
+    
     try:
         redis.delete(key)
         logger.info(f"Reset rate limit for key: {key}")

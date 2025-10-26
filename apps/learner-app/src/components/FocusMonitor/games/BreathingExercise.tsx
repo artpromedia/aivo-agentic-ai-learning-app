@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '@aivo/ui';
 
 interface BreathingExerciseProps {
@@ -13,11 +13,11 @@ export function BreathingExercise({ onComplete, duration = 60 }: BreathingExerci
   const [timeLeft, setTimeLeft] = useState(duration);
   const [circleScale, setCircleScale] = useState(1);
 
-  const phaseDurations = {
+  const phaseDurations = useMemo(() => ({
     inhale: 4,
     hold: 4,
     exhale: 4,
-  };
+  }), []);
 
   // Timer
   useEffect(() => {
@@ -45,7 +45,7 @@ export function BreathingExercise({ onComplete, duration = 60 }: BreathingExerci
     phaseTimer = setTimeout(advancePhase, phaseDurations[phase] * 1000);
 
     return () => clearTimeout(phaseTimer);
-  }, [phase]);
+  }, [phase, phaseDurations]);
 
   // Animate circle
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '@aivo/ui';
 
 interface Card {
@@ -22,7 +22,7 @@ export function MemoryMatchGame({ onComplete, duration = 60 }: MemoryMatchGamePr
   const [timeLeft, setTimeLeft] = useState(duration);
   const [gameOver, setGameOver] = useState(false);
 
-  const emojis = ['🍎', '🍊', '🍋', '🍌', '🍇', '🍓', '🍒', '🍑'];
+  const emojis = useMemo(() => ['🍎', '🍊', '🍋', '🍌', '🍇', '🍓', '🍒', '🍑'], []);
 
   // Initialize game
   useEffect(() => {
@@ -35,7 +35,7 @@ export function MemoryMatchGame({ onComplete, duration = 60 }: MemoryMatchGamePr
         isMatched: false,
       }));
     setCards(shuffledCards);
-  }, []);
+  }, [emojis]);
 
   // Timer
   useEffect(() => {

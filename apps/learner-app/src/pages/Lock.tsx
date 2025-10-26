@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@aivo/ui';
 import { PageWrapper } from '../components/PageWrapper';
@@ -8,7 +8,23 @@ export function Lock() {
   const navigate = useNavigate();
   const [pin, setPin] = useState('');
   const [isWrongPin, setIsWrongPin] = useState(false);
-  const correctPin = '1234';
+  const [correctPin, setCorrectPin] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if PIN is set up
+    const learnerId = localStorage.getItem('current_learner_id');
+    const storedPin = localStorage.getItem(`learner_pin_${learnerId}`);
+    const pinSetupComplete = localStorage.getItem('pin_setup_complete');
+    
+    if (!pinSetupComplete || !storedPin) {
+      // Redirect to PIN setup
+      navigate('/setup-pin');
+    } else {
+      setCorrectPin(storedPin);
+      setLoading(false);
+    }
+  }, [navigate]);
 
   const childProfile = {
     name: 'Alex',
@@ -16,6 +32,14 @@ export function Lock() {
     level: 5,
     streak: '3 day streak 🔥',
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center">
+        <div className="text-white text-2xl">Loading...</div>
+      </div>
+    );
+  }
 
   const handleNumberClick = (num: number) => {
     if (pin.length < 4) {
