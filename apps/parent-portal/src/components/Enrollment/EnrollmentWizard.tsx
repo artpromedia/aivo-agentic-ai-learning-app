@@ -223,12 +223,15 @@ export function EnrollmentWizard({ onComplete }: EnrollmentWizardProps) {
   const handleNext = () => {
     if (currentStepData.validation) {
       if (!currentStepData.validation(learnerData)) {
+        console.log('❌ Validation failed for step:', currentStep);
+        console.log('Current learner data:', learnerData);
         return; // Validation failed
       }
     }
 
     if (currentStep === steps.length - 1) {
       // Final step - complete enrollment
+      console.log('✅ Final step completed. Learner data:', learnerData);
       clearEnrollmentProgress(); // Clear saved progress
       onComplete(learnerData as LearnerData);
     } else {

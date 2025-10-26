@@ -7,6 +7,12 @@ export function Onboarding() {
 
   const handleEnrollmentComplete = async (learnerData: LearnerData) => {
     console.log('📋 Enrollment completed:', learnerData);
+    console.log('📋 Required fields check:', {
+      firstName: learnerData.firstName,
+      lastName: learnerData.lastName,
+      dateOfBirth: learnerData.dateOfBirth,
+      grade: learnerData.grade,
+    });
     
     // Track enrollment completion
     analyticsService.trackEnrollmentComplete({
