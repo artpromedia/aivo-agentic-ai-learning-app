@@ -12,15 +12,38 @@ export function Lock() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // First, check if onboarding is complete
+    const baselineComplete = localStorage.getItem('baseline_complete');
+    const modelCloningComplete = localStorage.getItem('model_cloning_complete');
+    
+    // If onboarding not complete, redirect to appropriate step
+    if (!baselineComplete || baselineComplete !== 'true') {
+      console.log('⚠️ Baseline assessment not complete, redirecting...');
+      navigate('/onboarding/assessment');
+      return;
+    }
+    
+    if (!modelCloningComplete || modelCloningComplete !== 'true') {
+      console.log('⚠️ Model cloning not complete, redirecting...');
+      navigate('/cloning');
+      return;
+    }
+    
     // Check if PIN is set up
     const learnerId = localStorage.getItem('current_learner_id');
     const storedPin = localStorage.getItem(`learner_pin_${learnerId}`);
     const pinSetupComplete = localStorage.getItem('pin_setup_complete');
+    const pinSetupSkipped = localStorage.getItem('pin_setup_skipped');
     
-    if (!pinSetupComplete || !storedPin) {
-      // Redirect to PIN setup
-      navigate('/setup-pin');
-    } else {
+    // If PIN setup was skipped during onboarding or no PIN is configured, go directly to subjects
+    if (pinSetupSkipped || (!pinSetupComplete && !storedPin)) {
+      console.log('ℹ️ PIN not configured, redirecting to subjects...');
+      navigate('/subjects');
+      return;
+    }
+    
+    // If PIN is set up, use it for authentication
+    if (storedPin) {
       setCorrectPin(storedPin);
       setLoading(false);
     }

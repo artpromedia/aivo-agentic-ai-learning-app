@@ -1,83 +1,185 @@
-import { useState } from 'react';
-import { getFeatureFlags } from '../utils/mockData';
+import { useState, useEffect } from 'react';
+
+const API_BASE_URL = 'http://127.0.0.1:9000/api/v1/admin';
+
+interface FeatureFlag {
+  id: number;
+  key: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  rollout_percentage: number;
+  target_roles: string[] | null;
+  target_districts: string[] | null;
+  target_users: string[] | null;
+  environment: 'development' | 'staging' | 'production';
+  tags: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
 
 interface FlagFormData {
+  key: string;
   name: string;
   description: string;
   environment: string;
-  targetAudience: string;
-  rolloutPercentage: number;
+  target_roles: string[];
+  rollout_percentage: number;
 }
 
 export default function FeatureFlags() {
-  const [flags, setFlags] = useState(getFeatureFlags());
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedFlag, setSelectedFlag] = useState<any>(null);
+  const [selectedFlag, setSelectedFlag] = useState<FeatureFlag | null>(null);
   const [formData, setFormData] = useState<FlagFormData>({
+    key: '',
     name: '',
     description: '',
     environment: 'staging',
-    targetAudience: 'all',
-    rolloutPercentage: 0,
+    target_roles: [],
+    rollout_percentage: 0,
   });
+
+  // Fetch flags on mount
+  useEffect(() => {
+    fetchFlags();
+  }, []);
+
+  // Fetch flags on mount
+  useEffect(() => {
+    fetchFlags();
+  }, []);
+
+  const fetchFlags = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/feature-flags`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch flags: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setFlags(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch feature flags';
+      setError(errorMessage);
+      console.error('Error fetching flags:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleCreateFlag = () => {
     setFormData({
+      key: '',
       name: '',
       description: '',
       environment: 'staging',
-      targetAudience: 'all',
-      rolloutPercentage: 0,
+      target_roles: [],
+      rollout_percentage: 0,
     });
     setShowCreateModal(true);
   };
 
-  const handleEditFlag = (flag: any) => {
+  const handleEditFlag = (flag: FeatureFlag) => {
     setSelectedFlag(flag);
     setFormData({
+      key: flag.key,
       name: flag.name,
       description: flag.description,
       environment: flag.environment,
-      targetAudience: flag.targetAudience,
-      rolloutPercentage: flag.rolloutPercentage,
+      target_roles: flag.target_roles || [],
+      rollout_percentage: flag.rollout_percentage,
     });
     setShowEditModal(true);
   };
 
-  const handleToggleFlag = (flagId: string) => {
-    setFlags(flags.map(f => 
-      f.id === flagId ? { ...f, enabled: !f.enabled } : f
-    ));
+  const handleToggleFlag = async (flagId: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feature-flags/${flagId}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle flag');
+      }
+
+      const updatedFlag = await response.json();
+      setFlags(flags.map(f => f.id === flagId ? updatedFlag : f));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to toggle flag';
+      alert(`Error: ${errorMessage}`);
+      console.error('Error toggling flag:', err);
+    }
   };
 
-  const handleSaveFlag = () => {
-    if (showCreateModal) {
-      const newFlag = {
-        id: `flag-${Date.now()}`,
-        ...formData,
-        enabled: false,
-        createdAt: new Date(),
-        createdBy: 'Super Admin',
-        modifiedBy: 'Super Admin',
-        modifiedAt: new Date(),
-        targetAudience: formData.targetAudience as "all" | "districts" | "schools" | "specific-users",
-        environment: formData.environment as "production" | "staging" | "development",
-      };
-      setFlags([...flags, newFlag] as any);
-      setShowCreateModal(false);
-    } else {
-      setFlags(flags.map(f => 
-        f.id === selectedFlag?.id ? { 
-          ...f, 
-          name: formData.name,
-          description: formData.description,
-          rolloutPercentage: formData.rolloutPercentage,
-          modifiedAt: new Date(),
-          modifiedBy: 'Super Admin'
-        } : f
-      ));
-      setShowEditModal(false);
+  const handleSaveFlag = async () => {
+    try {
+      if (showCreateModal) {
+        // Create new flag
+        const response = await fetch(`${API_BASE_URL}/feature-flags`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            key: formData.key,
+            name: formData.name,
+            description: formData.description,
+            environment: formData.environment,
+            rollout_percentage: formData.rollout_percentage,
+            target_roles: formData.target_roles.length > 0 ? formData.target_roles : null,
+            enabled: false,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to create flag');
+        }
+
+        const newFlag = await response.json();
+        setFlags([...flags, newFlag]);
+        setShowCreateModal(false);
+      } else if (selectedFlag) {
+        // Update existing flag
+        const response = await fetch(`${API_BASE_URL}/feature-flags/${selectedFlag.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            description: formData.description,
+            rollout_percentage: formData.rollout_percentage,
+            target_roles: formData.target_roles.length > 0 ? formData.target_roles : null,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update flag');
+        }
+
+        const updatedFlag = await response.json();
+        setFlags(flags.map(f => f.id === selectedFlag.id ? updatedFlag : f));
+        setShowEditModal(false);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save flag';
+      alert(`Error: ${errorMessage}`);
+      console.error('Error saving flag:', err);
     }
   };
 
@@ -86,6 +188,44 @@ export default function FeatureFlags() {
     setShowEditModal(false);
     setSelectedFlag(null);
   };
+
+  const getTargetAudience = (flag: FeatureFlag): string => {
+    if (flag.target_roles && flag.target_roles.length > 0) {
+      return flag.target_roles.join(', ');
+    }
+    if (flag.target_districts && flag.target_districts.length > 0) {
+      return 'Specific Districts';
+    }
+    if (flag.target_users && flag.target_users.length > 0) {
+      return 'Specific Users';
+    }
+    return 'All Users';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <p className="mt-2 text-gray-600">Loading feature flags...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-800">Error: {error}</p>
+        <button 
+          onClick={fetchFlags}
+          className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -127,15 +267,15 @@ export default function FeatureFlags() {
                 <div className="flex items-center space-x-6 text-sm text-gray-500">
                   <span className="flex items-center gap-1">
                     <span className="text-gray-400">Target:</span>
-                    <span className="font-medium text-gray-700 capitalize">{flag.targetAudience}</span>
+                    <span className="font-medium text-gray-700 capitalize">{getTargetAudience(flag)}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="text-gray-400">Rollout:</span>
-                    <span className="font-medium text-gray-700">{flag.rolloutPercentage}%</span>
+                    <span className="font-medium text-gray-700">{flag.rollout_percentage}%</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="text-gray-400">Modified:</span>
-                    <span className="font-medium text-gray-700">{flag.modifiedAt.toLocaleDateString()}</span>
+                    <span className="font-medium text-gray-700">{new Date(flag.updated_at).toLocaleDateString()}</span>
                   </span>
                 </div>
               </div>
@@ -164,11 +304,11 @@ export default function FeatureFlags() {
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all"
-                        style={{ width: `${flag.rolloutPercentage}%` }}
+                        style={{ width: `${flag.rollout_percentage}%` }}
                       />
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-gray-700 min-w-[45px] text-right">{flag.rolloutPercentage}%</span>
+                  <span className="text-sm font-semibold text-gray-700 min-w-[45px] text-right">{flag.rollout_percentage}%</span>
                 </div>
               </div>
             )}
@@ -191,12 +331,27 @@ export default function FeatureFlags() {
 
             <div className="space-y-5">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Flag Key (unique identifier)</label>
+                <input
+                  type="text"
+                  value={formData.key}
+                  onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                  placeholder="e.g., new-assessment-engine"
+                  disabled={showEditModal}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+                />
+                {showEditModal && (
+                  <p className="text-xs text-gray-500 mt-1">Key cannot be changed after creation</p>
+                )}
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Flag Name</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., new-assessment-engine"
+                  placeholder="e.g., New Assessment Engine"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
@@ -227,31 +382,36 @@ export default function FeatureFlags() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Roles</label>
                   <select
-                    value={formData.targetAudience}
-                    onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
+                    multiple
+                    value={formData.target_roles}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions, option => option.value);
+                      setFormData({ ...formData, target_roles: selected });
+                    }}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    size={4}
                   >
-                    <option value="all">All Users</option>
-                    <option value="districts">Districts Only</option>
-                    <option value="beta">Beta Testers</option>
-                    <option value="teachers">Teachers Only</option>
-                    <option value="parents">Parents Only</option>
+                    <option value="super_admin">Super Admin</option>
+                    <option value="district_admin">District Admin</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="parent">Parent</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple. Leave empty for all users.</p>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Rollout Percentage: {formData.rolloutPercentage}%
+                  Rollout Percentage: {formData.rollout_percentage}%
                 </label>
                 <input
                   type="range"
                   min="0"
                   max="100"
-                  value={formData.rolloutPercentage}
-                  onChange={(e) => setFormData({ ...formData, rolloutPercentage: parseInt(e.target.value) })}
+                  value={formData.rollout_percentage}
+                  onChange={(e) => setFormData({ ...formData, rollout_percentage: parseInt(e.target.value) })}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -263,10 +423,10 @@ export default function FeatureFlags() {
                 </div>
               </div>
 
-              {formData.rolloutPercentage > 0 && (
+              {formData.rollout_percentage > 0 && (
                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                   <p className="text-sm text-indigo-800">
-                    <span className="font-semibold">Rollout Preview:</span> This feature will be visible to approximately {formData.rolloutPercentage}% of {formData.targetAudience === 'all' ? 'all users' : formData.targetAudience}.
+                    <span className="font-semibold">Rollout Preview:</span> This feature will be visible to approximately {formData.rollout_percentage}% of {formData.target_roles.length === 0 ? 'all users' : `users with roles: ${formData.target_roles.join(', ')}`}.
                   </p>
                 </div>
               )}

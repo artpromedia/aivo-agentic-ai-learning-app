@@ -18,7 +18,7 @@ export type SubDomain =
   // Science
   | 'physical_science' | 'life_science' | 'earth_space' | 'scientific_inquiry'
   // Writing
-  | 'mechanics' | 'organization' | 'development' | 'conventions'
+  | 'mechanics' | 'organization' | 'development' | 'conventions' | 'grammar'
   // SEL
   | 'self_awareness' | 'self_management' | 'social_awareness' | 'relationship_skills'
   // Speech Therapy
@@ -48,9 +48,9 @@ export interface ItemParameters {
   difficulty: number;        // b parameter (theta location)
   discrimination: number;    // a parameter (slope)
   guessing?: number;         // c parameter (lower asymptote)
-  domain: Domain;
-  subDomain: SubDomain;
-  gradeBand: GradeBand;
+  domain?: Domain;           // Optional: can be inferred from item
+  subDomain?: SubDomain;     // Optional: can be inferred from item
+  gradeBand?: GradeBand;     // Optional: can be inferred from item
   estimatedTime: number;     // seconds
   cognitiveLevel: 'remember' | 'understand' | 'apply' | 'analyze' | 'evaluate' | 'create';
 }
@@ -72,8 +72,9 @@ export interface BaselineItem {
   options?: {
     id: string;
     label: string;
-    correct: boolean;
-    distractor?: string;     // Why this is incorrect (for feedback)
+    correct?: boolean;        // Boolean flag for correct answer
+    correctness?: number;     // Numeric score (0-1) for partial credit
+    distractor?: string;      // Why this is incorrect (for feedback)
   }[];
   
   // Correct answer (for constructed response)

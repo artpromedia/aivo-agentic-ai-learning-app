@@ -28,19 +28,50 @@ export function OnboardingAssessment() {
   useEffect(() => {
     const setupAssessment = async () => {
       try {
+        console.log('='.repeat(80));
+        console.log('🎯 LEARNER APP: OnboardingAssessment Starting');
+        console.log('='.repeat(80));
+        console.log('📍 Current URL:', window.location.href);
+        console.log('🔍 URL Search Params:', searchParams.toString());
+        console.log('⏰ Timestamp:', new Date().toISOString());
+        
+        // Check for pending session from parent portal
+        const pendingSession = localStorage.getItem('pending_learner_session');
+        if (pendingSession) {
+          console.log('📦 Found pending session data from parent portal');
+          try {
+            const sessionData = JSON.parse(pendingSession);
+            console.log('📦 Session data:', { ...sessionData, token: '***' });
+            // Clear it after reading
+            localStorage.removeItem('pending_learner_session');
+          } catch {
+            console.warn('⚠️ Could not parse pending session data');
+          }
+        }
+        
         // Get learner_id from URL params or localStorage
         const learnerIdParam = searchParams.get('learner_id') || localStorage.getItem('current_learner_id');
         
+        console.log('👤 Learner ID from URL:', searchParams.get('learner_id'));
+        console.log('👤 Learner ID from localStorage:', localStorage.getItem('current_learner_id'));
+        console.log('👤 Final Learner ID:', learnerIdParam);
+        
         if (!learnerIdParam) {
+          console.error('❌ No learner ID found');
           setError('No learner ID found. Please start the onboarding process again.');
           return;
         }
 
         setLearnerId(learnerIdParam);
         
-        // Store learner_id for the session
+        // CRITICAL: Set user_role FIRST before anything else
+        console.log('🔐 Setting user_role to learner...');
+        localStorage.setItem('user_role', 'learner');
         localStorage.setItem('current_learner_id', learnerIdParam);
         localStorage.setItem('onboarding_flow', 'true');
+        
+        console.log('✅ User role set:', localStorage.getItem('user_role'));
+        console.log('✅ Learner ID stored:', localStorage.getItem('current_learner_id'));
         
         // Get auth token from URL params (passed from parent portal for cross-origin auth)
         // or fall back to localStorage if available
@@ -48,6 +79,8 @@ export function OnboardingAssessment() {
         
         console.log('🔐 Setting up assessment for learner:', learnerIdParam);
         console.log('🔑 Auth token available:', !!authToken);
+        console.log('🔑 Auth token source:', searchParams.get('token') ? 'URL' : 'localStorage');
+        console.log('='.repeat(80));
         
         if (authToken) {
           // Fetch learner details from backend
@@ -166,13 +199,24 @@ export function OnboardingAssessment() {
     localStorage.setItem('baseline_results', JSON.stringify(results));
     localStorage.setItem('baseline_complete', 'true');
     
+    // Store assessment results for model cloning API
+    const assessmentResults = {
+      session_id: results.id,
+      learner_id: results.learnerId,
+      domain_estimates: results.currentAbilityEstimates,
+      standard_errors: results.standardErrors,
+      total_items: results.responses.length,
+      completed_at: results.completedAt || new Date(),
+    };
+    localStorage.setItem('assessment_results', JSON.stringify(assessmentResults));
+    
     // Check return_to parameter
     const returnTo = searchParams.get('return_to');
     
     if (returnTo === 'model_cloning') {
-      // Redirect back to parent portal for model cloning
-      const parentPortalUrl = 'http://localhost:3001/#/model-cloning';
-      window.location.href = parentPortalUrl;
+      // Stay in learner app and go to Responsible AI model cloning
+      console.log('🧬 Assessment complete! Moving to Responsible AI model cloning...');
+      navigate('/cloning');
     } else {
       // Show results page
       navigate(`/baseline/results/${results.id}`);

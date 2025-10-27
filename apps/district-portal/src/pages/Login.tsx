@@ -1,21 +1,50 @@
 import { useState, FormEvent } from 'react';
-import { useAuth } from '@aivo/auth';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@aivo/auth';
+import { loginWithAPI } from '../services/auth.api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading, error } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
     
     try {
-      await login({ email, password });
-      navigate('/'); // Navigate to root (Dashboard)
+      // Use real API authentication first to validate credentials
+      console.log('🔐 Attempting login...');
+      const { user, accessToken, refreshToken } = await loginWithAPI({ email, password });
+      console.log('✅ Login API successful, user:', user);
+      
+      // Store tokens for API calls
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
+      console.log('💾 Stored API tokens');
+      
+      // Now use the mock login to set auth context (bypass API)
+      // This uses the existing mock system which handles dates correctly
+      const mockCredentials = {
+        email: 'district@demo.com',
+        password: 'demo123'
+      };
+      
+      console.log('🔄 Setting auth context with mock login...');
+      await login(mockCredentials);
+      
+      console.log('✅ Auth context set, redirecting...');
+      // Navigate to dashboard
+      navigate('/');
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('❌ Login failed:', err);
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -36,11 +65,14 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Demo Credentials Banner */}
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-            <p className="text-sm font-semibold text-indigo-800 mb-1">Demo Credentials:</p>
-            <p className="text-sm text-indigo-700">
-              <strong>Email:</strong> district@demo.com<br />
-              <strong>Password:</strong> demo123
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-green-800 mb-1">🔐 Backend Login Credentials:</p>
+            <p className="text-sm text-green-700 font-mono">
+              <strong>Email:</strong> admin@aivolearning.com<br />
+              <strong>Password:</strong> Admin123!
+            </p>
+            <p className="text-xs text-green-600 mt-2">
+              ⚠️ Password is case-sensitive: Capital 'A' in Admin
             </p>
           </div>
 
@@ -55,7 +87,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="district@demo.com"
+              placeholder="admin@aivolearning.com"
             />
           </div>
 

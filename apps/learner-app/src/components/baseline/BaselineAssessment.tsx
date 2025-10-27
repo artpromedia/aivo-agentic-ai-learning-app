@@ -2,7 +2,7 @@
  * Baseline Assessment Container
  * Main component that orchestrates the adaptive assessment
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { 
   BaselineSession, 
   BaselineItem, 
@@ -38,10 +38,16 @@ export function BaselineAssessment({
     gradeBand,
     startedAt: new Date(),
     currentDomain: 'reading', // Start with reading
+    domainsCompleted: [],
+    status: 'in_progress',
+    itemsAnswered: 0,
+    totalItems: 0,
     currentAbilityEstimates: {},
     standardErrors: {},
     responses: [],
-    completedDomains: []
+    totalTimeMs: 0,
+    audioRecordingEnabled,
+    textToSpeechEnabled
   });
   
   const [currentItem, setCurrentItem] = useState<BaselineItem | null>(null);
@@ -59,7 +65,6 @@ export function BaselineAssessment({
   const [currentQuestionTime, setCurrentQuestionTime] = useState(0);
   
   const questionStartTimeRef = useRef(Date.now());
-  const focusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Load items for current domain (mock data - will be replaced with API call)
   useEffect(() => {
@@ -89,8 +94,12 @@ export function BaselineAssessment({
           estimatedTime: 45,
           cognitiveLevel: 'understand'
         },
+        points: 1,
         readAloud: true,
-        allowCalculator: false
+        allowCalculator: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: ['baseline', 'reading']
       },
       // Math items
       {
@@ -113,10 +122,98 @@ export function BaselineAssessment({
           estimatedTime: 30,
           cognitiveLevel: 'apply'
         },
+        points: 1,
         readAloud: true,
-        allowCalculator: false
+        allowCalculator: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: ['baseline', 'math']
+      },
+      // Science items
+      {
+        id: 'science-1',
+        domain: 'science',
+        subDomain: 'life_science',
+        gradeBand,
+        type: 'single_choice',
+        stem: 'What do plants need to grow?',
+        options: [
+          { id: 'a', label: 'Only water', correctness: 0 },
+          { id: 'b', label: 'Sunlight, water, and air', correctness: 1 },
+          { id: 'c', label: 'Only sunlight', correctness: 0 },
+          { id: 'd', label: 'Only soil', correctness: 0 }
+        ],
+        parameters: {
+          difficulty: -0.8,
+          discrimination: 1.3,
+          guessing: 0.25,
+          estimatedTime: 35,
+          cognitiveLevel: 'remember'
+        },
+        points: 1,
+        readAloud: true,
+        allowCalculator: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: ['baseline', 'science']
+      },
+      // Writing items
+      {
+        id: 'writing-1',
+        domain: 'writing',
+        subDomain: 'grammar',
+        gradeBand,
+        type: 'single_choice',
+        stem: 'Which sentence is correct?',
+        options: [
+          { id: 'a', label: 'She go to school', correctness: 0 },
+          { id: 'b', label: 'She goes to school', correctness: 1 },
+          { id: 'c', label: 'She going to school', correctness: 0 },
+          { id: 'd', label: 'She goed to school', correctness: 0 }
+        ],
+        parameters: {
+          difficulty: -0.3,
+          discrimination: 1.4,
+          guessing: 0.25,
+          estimatedTime: 40,
+          cognitiveLevel: 'apply'
+        },
+        points: 1,
+        readAloud: true,
+        allowCalculator: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: ['baseline', 'writing']
+      },
+      // SEL items
+      {
+        id: 'sel-1',
+        domain: 'sel',
+        subDomain: 'self_awareness',
+        gradeBand,
+        type: 'single_choice',
+        stem: 'How do you feel when you help a friend?',
+        options: [
+          { id: 'a', label: 'Sad', correctness: 0 },
+          { id: 'b', label: 'Happy and proud', correctness: 1 },
+          { id: 'c', label: 'Angry', correctness: 0 },
+          { id: 'd', label: 'Scared', correctness: 0 }
+        ],
+        parameters: {
+          difficulty: -1.0,
+          discrimination: 1.0,
+          guessing: 0.25,
+          estimatedTime: 25,
+          cognitiveLevel: 'understand'
+        },
+        points: 1,
+        readAloud: true,
+        allowCalculator: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: ['baseline', 'sel']
       }
-      // TODO: Add more items for all domains
+      // TODO: Add more items for all domains in production
     ];
     
     setAvailableItems(mockItems);
@@ -140,9 +237,11 @@ export function BaselineAssessment({
     
     // Check if we should stop testing this domain
     const domainResponses = session.responses.filter(r => r.domain === session.currentDomain);
-    if (shouldStopTesting(domainResponses, currentSE, {
-      minItems: 10,
-      maxItems: 30,
+    
+    // Only stop if we have at least answered one question per domain
+    if (domainResponses.length > 0 && shouldStopTesting(domainResponses, currentSE, {
+      minItems: 1, // Reduced for mock data (only 1 question per domain)
+      maxItems: 5,
       targetSE: 0.3
     })) {
       handleDomainComplete();
@@ -151,11 +250,14 @@ export function BaselineAssessment({
     
     // Select next item using adaptive algorithm
     const nextItem = selectNextItem({
+      domain: session.currentDomain,
+      currentTheta: currentTheta,
+      standardError: currentSE,
+      responsesInDomain: domainResponses,
       availableItems: domainItems,
-      currentDomain: session.currentDomain,
-      currentAbilityEstimate: currentTheta,
-      previousResponses: session.responses,
-      gradeBand
+      targetAccuracy: 0.7,
+      contentBalancing: true,
+      exposureControl: false
     });
     
     if (nextItem) {
@@ -165,7 +267,7 @@ export function BaselineAssessment({
     } else {
       handleDomainComplete();
     }
-  }, [availableItems, currentItem, session]);
+  }, [availableItems, currentItem, session.currentDomain, session.currentAbilityEstimates, session.standardErrors, session.responses]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Track time on current question
   useEffect(() => {
@@ -227,7 +329,17 @@ export function BaselineAssessment({
       availableItems.find(item => item.id === r.itemId)!
     );
     
-    const { theta, se } = estimateAbilityMLE(domainResponses, items);
+    // Convert to format expected by estimateAbilityMLE
+    const irtResponses = domainResponses.map((r, i) => ({
+      correct: r.score > 0.5,  // Convert score to boolean
+      item: {
+        a: items[i].parameters.discrimination,
+        b: items[i].parameters.difficulty,
+        c: items[i].parameters.guessing || 0.25
+      }
+    }));
+    
+    const { theta, standardError } = estimateAbilityMLE(irtResponses);
     
     // Update session
     setSession(prev => ({
@@ -239,7 +351,7 @@ export function BaselineAssessment({
       },
       standardErrors: {
         ...prev.standardErrors,
-        [session.currentDomain]: se
+        [session.currentDomain]: standardError
       }
     }));
     
@@ -263,37 +375,49 @@ export function BaselineAssessment({
   };
   
   // Handle domain completion
-  const handleDomainComplete = () => {
-    const completedDomain = session.currentDomain;
-    const completedDomains = [...session.completedDomains, completedDomain];
-    
-    // Determine next domain
-    const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
-    const remainingDomains = allDomains.filter(d => !completedDomains.includes(d));
-    
-    if (remainingDomains.length === 0) {
-      // Assessment complete!
-      const finalSession: BaselineSession = {
-        ...session,
-        completedDomains,
-        completedAt: new Date()
+  const handleDomainComplete = useCallback(() => {
+    setSession(prev => {
+      const completedDomain = prev.currentDomain;
+      const domainsCompleted = [...prev.domainsCompleted, completedDomain];
+      
+      // Determine next domain
+      const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
+      const remainingDomains = allDomains.filter(d => !domainsCompleted.includes(d));
+      
+      if (remainingDomains.length === 0) {
+        // Assessment complete!
+        const finalSession: BaselineSession = {
+          ...prev,
+          domainsCompleted,
+          status: 'completed',
+          completedAt: new Date()
+        };
+        onComplete(finalSession);
+        return prev; // Don't update state, we're done
+      }
+      
+      // Show transition screen
+      setShowTransition(true);
+      return {
+        ...prev,
+        domainsCompleted
       };
-      onComplete(finalSession);
-      return;
-    }
-    
-    // Show transition screen
-    setSession(prev => ({
-      ...prev,
-      completedDomains
-    }));
-    setShowTransition(true);
-  };
+    });
+  }, [onComplete]);
   
   // Handle transition continue
   const handleTransitionContinue = () => {
+    console.log('🔄 BaselineAssessment: handleTransitionContinue called');
+    console.log('📊 Current session state:', {
+      currentDomain: session.currentDomain,
+      domainsCompleted: session.domainsCompleted,
+      totalResponses: session.responses.length
+    });
+    
     const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
-    const nextDomain = allDomains.find(d => !session.completedDomains.includes(d));
+    const nextDomain = allDomains.find(d => !session.domainsCompleted.includes(d));
+    
+    console.log('➡️ Next domain determined:', nextDomain);
     
     if (nextDomain) {
       setSession(prev => ({
@@ -302,14 +426,17 @@ export function BaselineAssessment({
       }));
       setShowTransition(false);
       setCurrentItem(null); // Trigger next item selection
+      console.log('✅ Updated session to continue with domain:', nextDomain);
+    } else {
+      console.log('⚠️ No next domain found - assessment should be complete');
     }
   };
   
   // Show transition screen
-  if (showTransition && session.completedDomains.length > 0) {
-    const lastCompletedDomain = session.completedDomains[session.completedDomains.length - 1];
+  if (showTransition && session.domainsCompleted.length > 0) {
+    const lastCompletedDomain = session.domainsCompleted[session.domainsCompleted.length - 1];
     const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
-    const nextDomain = allDomains.find(d => !session.completedDomains.includes(d));
+    const nextDomain = allDomains.find(d => !session.domainsCompleted.includes(d));
     
     if (!nextDomain) return null; // Should not happen
     

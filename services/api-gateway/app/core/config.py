@@ -59,7 +59,8 @@ class Settings(BaseSettings):
         "http://localhost:3004",
         "http://localhost:3005",
         "http://localhost:3006",
-        "http://localhost:5005",  # District portal
+        "http://localhost:5005",  # District portal (default)
+        "http://localhost:5006",  # District portal (alternate)
         "http://localhost:5007",  # Admin portal
         "http://localhost:5009",
     ]
@@ -131,6 +132,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra env vars from root .env
 
 
 @lru_cache()

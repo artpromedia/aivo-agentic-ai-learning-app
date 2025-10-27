@@ -16,11 +16,16 @@ export function SubjectSelection() {
   const learnerTheme = (theme || 'MS').toUpperCase() as LearnerTheme;
   const subjects = getSubjectsForTheme(learnerTheme);
 
-  // Check if assessment is required (90-day check)
-  // In production, this would come from the backend API
-  const isAssessmentRequired = () => {
+  // Check if periodic reassessment is due (90-day check)
+  // This is for periodic reassessments, NOT initial onboarding
+  // Initial baseline assessment is enforced by OnboardingGuard before reaching this page
+  const isReassessmentDue = () => {
     const lastAssessmentDate = localStorage.getItem('lastAssessmentDate');
-    if (!lastAssessmentDate) return true; // First time - show assessment
+    if (!lastAssessmentDate) {
+      // Set current date as first assessment (just completed during onboarding)
+      localStorage.setItem('lastAssessmentDate', new Date().toISOString());
+      return false; // Just completed, not due yet
+    }
     
     const daysSinceAssessment = Math.floor(
       (Date.now() - new Date(lastAssessmentDate).getTime()) / (1000 * 60 * 60 * 24)
@@ -28,7 +33,7 @@ export function SubjectSelection() {
     return daysSinceAssessment >= 90;
   };
 
-  const showAssessment = isAssessmentRequired();
+  const showReassessmentReminder = isReassessmentDue();
 
   // Mock progress data (in a real app, this would come from the backend)
   const getSubjectProgress = (subjectId: string) => {
@@ -79,21 +84,21 @@ export function SubjectSelection() {
             </p>
           </div>
           <div className="flex gap-4 items-center">
-            {/* Baseline Assessment Button - Only show if required (every 90 days) */}
-            {showAssessment && (
+            {/* Periodic Reassessment Reminder - Only show if 90+ days since last assessment */}
+            {showReassessmentReminder && (
               <button
                 onClick={() => navigate('/assessment')}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold animate-bounce"
+                className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 rounded-2xl flex items-center gap-3 px-6 py-4 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all text-white font-bold"
                 style={{
                   fontSize: themeConfig.fontSize.base,
                   transitionDuration: `${themeConfig.animations.duration}ms`,
                 }}
-                aria-label="Take Baseline Assessment"
-                data-testid="nav-assessment"
-                title="Assessment required! It's been 90 days since your last assessment."
+                aria-label="Take Reassessment"
+                data-testid="nav-reassessment"
+                title="It's been 90 days! Time for a reassessment to keep your AI brain updated."
               >
-                <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>🎯</span>
-                <span>Assessment Due!</span>
+                <span style={{ fontSize: `calc(${themeConfig.iconSize.navigation} * 1.2)` }}>🔄</span>
+                <span>Reassessment Available</span>
               </button>
             )}
 

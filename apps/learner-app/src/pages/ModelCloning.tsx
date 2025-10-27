@@ -81,19 +81,27 @@ export function ModelCloning() {
         // Navigate when complete
         if (newProgress === 100) {
           setTimeout(() => {
+            // Mark model cloning as complete
+            localStorage.setItem('model_cloning_complete', 'true');
+            console.log('✅ Model cloning complete!');
+            
             // Clear onboarding flags
             localStorage.removeItem('needs_assessment');
             localStorage.removeItem('onboarding_flow');
             
-            // Check if we're in onboarding flow
-            const isOnboarding = localStorage.getItem('onboarding_token');
+            // Check if we should skip PIN setup (first-time onboarding)
+            const skipPinSetup = localStorage.getItem('skip_pin_setup');
             
-            if (isOnboarding) {
-              // During onboarding, skip PIN setup and go to subject selection
-              console.log('🎓 Onboarding complete! Redirecting to subject selection...');
+            if (skipPinSetup) {
+              // First-time onboarding - skip PIN setup and go to subject selection
+              console.log('🎓 First-time onboarding complete! Skipping PIN setup, going to subjects...');
+              localStorage.removeItem('skip_pin_setup'); // Clear the flag
+              // Mark that PIN setup was skipped (optional)
+              localStorage.setItem('pin_setup_skipped', 'true');
               navigate('/subjects');
             } else {
               // Regular flow - go to PIN setup
+              console.log('🔐 Redirecting to PIN setup...');
               navigate('/setup-pin');
             }
           }, 2000);

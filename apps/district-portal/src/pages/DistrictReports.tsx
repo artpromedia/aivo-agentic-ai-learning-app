@@ -1,13 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { reportsAPI, type Report, type ScheduledReport, type ReportFormat, type ReportType } from '../services/api';
 
 export default function DistrictReports() {
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'excel' | 'csv'>('pdf');
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<ReportFormat>('pdf');
   const [dateRange, setDateRange] = useState({
     start: '',
     end: '',
   });
+  
+  // API data state
+  const [generatedReports, setGeneratedReports] = useState<Report[]>([]);
+  const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const reportTypes = [
     {
@@ -67,6 +76,80 @@ export default function DistrictReports() {
       frequency: 'Quarterly',
     },
   ];
+
+  // Load data on mount
+  const loadReportsData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [generated, scheduled] = await Promise.all([
+        reportsAPI.list({ limit: 10 }),
+        reportsAPI.listScheduled({ is_active: true }),
+      ]);
+      setGeneratedReports(generated);
+      setScheduledReports(scheduled);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReportsData();
+  }, [loadReportsData]);
+
+  // Handle report generation
+  const handleGenerateReport = async () => {
+    if (!selectedReport) return;
+
+    const reportType = reportTypes.find((r) => r.id === selectedReport);
+    if (!reportType) return;
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const reportName = `${reportType.name} - ${new Date().toLocaleDateString()}`;
+      
+      const report = await reportsAPI.generate({
+        report_type: selectedReport as ReportType,
+        report_name: reportName,
+        format: downloadFormat,
+        date_range_start: dateRange.start || undefined,
+        date_range_end: dateRange.end || undefined,
+      });
+
+      // Close modal
+      setShowDownloadModal(false);
+      setDateRange({ start: '', end: '' });
+
+      // Refresh reports list
+      await loadReportsData();
+
+      // If completed immediately, download it
+      if (report.status === 'completed' && report.id) {
+        await handleDownloadReport(report.id, report.file_name || `${reportName}.${downloadFormat}`);
+      } else {
+        alert(`Report "${reportName}" is being generated. You can download it from the "Recently Generated Reports" section once it's ready.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate report');
+      alert('Failed to generate report. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Handle report download
+  const handleDownloadReport = async (reportId: number, fileName: string) => {
+    try {
+      const blob = await reportsAPI.download(reportId);
+      reportsAPI.triggerDownload(blob, fileName);
+    } catch (err) {
+      alert('Failed to download report. Please try again.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -166,97 +249,157 @@ export default function DistrictReports() {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-neutral-900">Scheduled Automated Reports</h2>
-          <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm">
+          <button
+            onClick={() => setShowScheduleModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm"
+          >
             + Schedule New Report
           </button>
         </div>
 
-        <div className="space-y-3">
-          <div className="p-4 border border-neutral-200 rounded-lg flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-2xl">📊</span>
-              <div>
-                <p className="font-semibold text-neutral-900">Weekly Performance Summary</p>
-                <p className="text-sm text-neutral-600">Every Monday at 8:00 AM • PDF & Email</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                Active
-              </span>
-              <button className="px-3 py-1 text-neutral-600 hover:bg-neutral-100 rounded-lg text-sm">
-                Edit
-              </button>
-            </div>
+        {loading ? (
+          <div className="text-center py-8 text-neutral-600">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p className="mt-2">Loading scheduled reports...</p>
           </div>
-
-          <div className="p-4 border border-neutral-200 rounded-lg flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-2xl">✓</span>
-              <div>
-                <p className="font-semibold text-neutral-900">Monthly IEP Compliance</p>
-                <p className="text-sm text-neutral-600">1st of each month • Excel & Dashboard</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                Active
-              </span>
-              <button className="px-3 py-1 text-neutral-600 hover:bg-neutral-100 rounded-lg text-sm">
-                Edit
-              </button>
-            </div>
+        ) : scheduledReports.length === 0 ? (
+          <div className="text-center py-8 text-neutral-500">
+            <p>No scheduled reports yet. Click "+ Schedule New Report" to set up automated reporting.</p>
           </div>
-
-          <div className="p-4 border border-neutral-200 rounded-lg flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <span className="text-2xl">🏫</span>
-              <div>
-                <p className="font-semibold text-neutral-900">Quarterly School Comparison</p>
-                <p className="text-sm text-neutral-600">End of each quarter • PDF & Email</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                Active
-              </span>
-              <button className="px-3 py-1 text-neutral-600 hover:bg-neutral-100 rounded-lg text-sm">
-                Edit
-              </button>
-            </div>
+        ) : (
+          <div className="space-y-3">
+            {scheduledReports.map((schedule) => {
+              const reportType = reportTypes.find((r) => r.id === schedule.report_type);
+              return (
+                <div
+                  key={schedule.id}
+                  className="p-4 border border-neutral-200 rounded-lg flex items-center justify-between"
+                >
+                  <div className="flex items-center space-x-4">
+                    <span className="text-2xl">{reportType?.icon || '📊'}</span>
+                    <div>
+                      <p className="font-semibold text-neutral-900">{schedule.name}</p>
+                      <p className="text-sm text-neutral-600">
+                        {schedule.frequency.charAt(0).toUpperCase() + schedule.frequency.slice(1)} • {schedule.format.toUpperCase()}
+                        {schedule.email_recipients && schedule.email_recipients.length > 0 && ' • Email'}
+                      </p>
+                      {schedule.next_run_at && (
+                        <p className="text-xs text-neutral-500 mt-1">
+                          Next run: {new Date(schedule.next_run_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        schedule.is_active
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {schedule.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        // TODO: Implement edit modal
+                        alert('Edit functionality coming soon!');
+                      }}
+                      className="px-3 py-1 text-neutral-600 hover:bg-neutral-100 rounded-lg text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Delete scheduled report "${schedule.name}"?`)) {
+                          try {
+                            await reportsAPI.deleteSchedule(schedule.id);
+                            await loadReportsData();
+                          } catch (err) {
+                            alert('Failed to delete scheduled report');
+                          }
+                        }
+                      }}
+                      className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Recent Reports */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
         <h2 className="text-lg font-semibold text-neutral-900 mb-4">Recently Generated Reports</h2>
-        <div className="space-y-2">
-          {[
-            { name: 'District Performance Summary - Week 42', date: '2 days ago', size: '2.4 MB' },
-            { name: 'IEP Compliance Report - October', date: '5 days ago', size: '1.8 MB' },
-            { name: 'School Comparison Report Q3', date: '1 week ago', size: '3.2 MB' },
-            { name: 'Parent Engagement Analysis', date: '2 weeks ago', size: '1.1 MB' },
-          ].map((report, index) => (
-            <div
-              key={index}
-              className="p-3 border border-neutral-200 rounded-lg flex items-center justify-between hover:bg-neutral-50 transition-colors"
+        
+        {loading ? (
+          <div className="text-center py-8 text-neutral-600">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <p className="mt-2">Loading reports...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-red-600">{error}</p>
+            <button
+              onClick={loadReportsData}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
             >
-              <div className="flex items-center space-x-3">
-                <span className="text-xl">📄</span>
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">{report.name}</p>
-                  <p className="text-xs text-neutral-500">
-                    {report.date} • {report.size}
-                  </p>
+              Retry
+            </button>
+          </div>
+        ) : generatedReports.length === 0 ? (
+          <div className="text-center py-8 text-neutral-500">
+            <p>No reports generated yet. Click "Generate Report" on any report type above to create your first report.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {generatedReports.map((report) => (
+              <div
+                key={report.id}
+                className="p-3 border border-neutral-200 rounded-lg flex items-center justify-between hover:bg-neutral-50 transition-colors"
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="text-xl">📄</span>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">{report.report_name}</p>
+                    <p className="text-xs text-neutral-500">
+                      {new Date(report.generated_at).toLocaleDateString()} • 
+                      {report.file_size ? ` ${(report.file_size / 1024 / 1024).toFixed(2)} MB` : ' Processing...'} • 
+                      <span className={`font-semibold ${
+                        report.status === 'completed' ? 'text-green-600' :
+                        report.status === 'processing' ? 'text-blue-600' :
+                        report.status === 'failed' ? 'text-red-600' :
+                        'text-yellow-600'
+                      }`}>
+                        {report.status.toUpperCase()}
+                      </span>
+                    </p>
+                  </div>
                 </div>
+                {report.status === 'completed' && report.file_name ? (
+                  <button
+                    onClick={() => handleDownloadReport(report.id, report.file_name!)}
+                    className="px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  >
+                    Download
+                  </button>
+                ) : report.status === 'failed' ? (
+                  <span className="px-3 py-1.5 text-xs font-medium text-red-600">
+                    Failed
+                  </span>
+                ) : (
+                  <span className="px-3 py-1.5 text-xs font-medium text-blue-600">
+                    Processing...
+                  </span>
+                )}
               </div>
-              <button className="px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                Download
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Download Report Modal */}
@@ -272,16 +415,7 @@ export default function DistrictReports() {
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              const report = reportTypes.find(r => r.id === selectedReport);
-              if (report) {
-                // Simulate download
-                const fileName = `${report.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${downloadFormat === 'excel' ? 'xlsx' : downloadFormat}`;
-                console.log('Downloading:', fileName, 'Format:', downloadFormat, 'Date Range:', dateRange);
-                // In a real app, this would trigger a file download
-                alert(`Report "${report.name}" will be downloaded as ${downloadFormat.toUpperCase()}`);
-                setShowDownloadModal(false);
-                setDateRange({ start: '', end: '' });
-              }
+              handleGenerateReport();
             }} className="p-6 space-y-6">
               {/* Report Info */}
               {selectedReport && reportTypes.find(r => r.id === selectedReport) && (
@@ -406,16 +540,27 @@ export default function DistrictReports() {
                     setShowDownloadModal(false);
                     setDateRange({ start: '', end: '' });
                   }}
-                  className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+                  disabled={isGenerating}
+                  className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
+                  disabled={isGenerating}
+                  className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Download {downloadFormat.toUpperCase()}</span>
-                  <span>⬇️</span>
+                  {isGenerating ? (
+                    <>
+                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Generate {downloadFormat.toUpperCase()}</span>
+                      <span>⬇️</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

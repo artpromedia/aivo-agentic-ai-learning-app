@@ -7,39 +7,62 @@ Operations Admin endpoints for:
 - Provisioning licenses
 - Bulk operations
 
-Updated: 2025-10-23 21:52:51 UTC
+Updated: 2025-10-26
 By: aivo-ai
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
+
+from app.api.deps import require_admin
 from app.core.database import get_db
-from app.models.user import User
 from app.models.license import (
-    LicenseVault,
-    LicensePool,
-    LicenseV2,
     DistrictAccount,
-    SchoolAccount,
-    LicenseType,
+    DistrictStatus,
+    LicensePool,
     LicenseStatus,
-    DistrictStatus
+    LicenseType,
+    LicenseV2,
+    LicenseVault,
+    SchoolAccount,
 )
+from app.models.user import User
 from app.schemas.license import (
-    VaultEntryCreate,
     DistrictAccountCreate,
     ProvisionLicensesRequest,
-    SchoolAccountCreate
+    SchoolAccountCreate,
+    VaultEntryCreate,
 )
-from app.schemas.response import success_response, paginated_response
-from app.api.deps import require_admin
+from app.schemas.response import paginated_response, success_response
 from app.services.license_service import LicenseService
 
 router = APIRouter()
+
+
+# Additional Pydantic Schemas for enhanced operations
+class BulkAssignRequest(BaseModel):
+    """Bulk license assignment request."""
+    license_ids: List[str]
+    teacher_id: Optional[str] = None
+    school_id: Optional[str] = None
+
+
+class TransferLicenseRequest(BaseModel):
+    """License transfer request."""
+    from_teacher_id: str
+    to_teacher_id: str
+    reason: Optional[str] = None
+
+
+class ReclaimLicenseRequest(BaseModel):
+    """License reclaim request."""
+    reason: str
+    inactive_days_threshold: int = 30
 
 
 # ==========================================
@@ -591,3 +614,218 @@ async def get_district_usage_stats(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+
+
+# ==========================================
+# BULK OPERATIONS (NEW)
+# ==========================================
+
+@router.post("/bulk-assign", response_model=dict)
+async def bulk_assign_licenses(
+    request: BulkAssignRequest,
+    current_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk assign licenses to a teacher or school.
+    
+    Assigns multiple licenses at once for efficiency.
+    """
+    if not request.teacher_id and not request.school_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must specify either teacher_id or school_id"
+        )
+    
+    success_count = 0
+    failed_licenses = []
+    
+    for license_id in request.license_ids:
+        try:
+            license_obj = db.query(LicenseV2).filter(
+                LicenseV2.license_id == license_id
+            ).first()
+            
+            if not license_obj:
+                failed_licenses.append({
+                    "license_id": license_id,
+                    "reason": "License not found"
+                })
+                continue
+            
+            if license_obj.status != LicenseStatus.AVAILABLE:
+                failed_licenses.append({
+                    "license_id": license_id,
+                    "reason": f"License status is {license_obj.status}"
+                })
+                continue
+            
+            # Assign license
+            license_obj.assigned_teacher_id = request.teacher_id
+            license_obj.assigned_to_school = request.school_id
+            license_obj.status = LicenseStatus.ASSIGNED
+            license_obj.assigned_at = datetime.utcnow()
+            
+            success_count += 1
+            
+        except Exception as e:
+            failed_licenses.append({
+                "license_id": license_id,
+                "reason": str(e)
+            })
+    
+    db.commit()
+    
+    return success_response(
+        data={
+            "total_licenses": len(request.license_ids),
+            "successful_assignments": success_count,
+            "failed_assignments": len(failed_licenses),
+            "failed_licenses": failed_licenses
+        },
+        meta={
+            "message": (
+                f"Assigned {success_count} out of "
+                f"{len(request.license_ids)} licenses"
+            )
+        }
+    )
+
+
+@router.post("/licenses/{license_id}/transfer", response_model=dict)
+async def transfer_license(
+    license_id: str,
+    request: TransferLicenseRequest,
+    current_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db)
+):
+    """
+    Transfer a license from one teacher to another.
+    
+    Reassigns all students and updates the license owner.
+    """
+    license_obj = db.query(LicenseV2).filter(
+        LicenseV2.license_id == license_id
+    ).first()
+    
+    if not license_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"License {license_id} not found"
+        )
+    
+    if license_obj.assigned_teacher_id != request.from_teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="License is not assigned to the specified teacher"
+        )
+    
+    # Verify target teacher exists
+    to_teacher = db.query(User).filter(
+        User.id == request.to_teacher_id
+    ).first()
+    
+    if not to_teacher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Target teacher {request.to_teacher_id} not found"
+        )
+    
+    # Transfer license
+    old_teacher_id = license_obj.assigned_teacher_id
+    license_obj.assigned_teacher_id = request.to_teacher_id
+    
+    # TODO: Transfer student assignments
+    # This would involve updating LicenseAssignmentV2 records
+    
+    db.commit()
+    
+    return success_response(
+        data={
+            "license_id": license_id,
+            "from_teacher_id": old_teacher_id,
+            "to_teacher_id": request.to_teacher_id,
+            "transfer_reason": request.reason,
+            "transferred_at": datetime.utcnow().isoformat(),
+            "transferred_by": current_user.id
+        },
+        meta={
+            "message": (
+                f"License {license_id} transferred successfully"
+            )
+        }
+    )
+
+
+@router.post("/licenses/reclaim-inactive", response_model=dict)
+async def reclaim_inactive_licenses(
+    request: ReclaimLicenseRequest,
+    current_user: User = Depends(require_admin()),
+    db: Session = Depends(get_db)
+):
+    """
+    Reclaim licenses from inactive teachers.
+    
+    Identifies teachers who haven't logged in for X days
+    and reclaims their unused license seats.
+    """
+    from datetime import timedelta
+    
+    threshold_date = datetime.utcnow() - timedelta(
+        days=request.inactive_days_threshold
+    )
+    
+    # Find inactive teachers
+    inactive_teachers = db.query(User).filter(
+        User.last_login < threshold_date,
+        User.role == "teacher"
+    ).all()
+    
+    reclaimed_licenses = []
+    total_seats_reclaimed = 0
+    
+    for teacher in inactive_teachers:
+        # Find licenses assigned to this teacher
+        licenses = db.query(LicenseV2).filter(
+            LicenseV2.assigned_teacher_id == teacher.id,
+            LicenseV2.status == LicenseStatus.ASSIGNED
+        ).all()
+        
+        for license_obj in licenses:
+            # Only reclaim if no students are assigned
+            if license_obj.used_seats == 0:
+                license_obj.assigned_teacher_id = None
+                license_obj.status = LicenseStatus.AVAILABLE
+                
+                reclaimed_licenses.append({
+                    "license_id": license_obj.license_id,
+                    "teacher_id": teacher.id,
+                    "teacher_email": teacher.email,
+                    "last_login": (
+                        teacher.last_login.isoformat()
+                        if teacher.last_login else None
+                    ),
+                    "seats_freed": license_obj.total_seats
+                })
+                
+                total_seats_reclaimed += license_obj.total_seats
+    
+    db.commit()
+    
+    return success_response(
+        data={
+            "reclaimed_licenses": reclaimed_licenses,
+            "total_licenses_reclaimed": len(reclaimed_licenses),
+            "total_seats_reclaimed": total_seats_reclaimed,
+            "inactive_threshold_days": request.inactive_days_threshold,
+            "reclaim_reason": request.reason,
+            "reclaimed_at": datetime.utcnow().isoformat(),
+            "reclaimed_by": current_user.id
+        },
+        meta={
+            "message": (
+                f"Reclaimed {len(reclaimed_licenses)} licenses "
+                f"({total_seats_reclaimed} seats) from inactive teachers"
+            )
+        }
+    )

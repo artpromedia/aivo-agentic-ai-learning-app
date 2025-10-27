@@ -110,6 +110,22 @@ class User(BaseModel):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+    settings = relationship(
+        "UserSettings",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+    sessions = relationship(
+        "UserSession",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    integrations = relationship(
+        "Integration",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
     
     def __repr__(self):
         return f"<User {self.email} ({self.role})>"

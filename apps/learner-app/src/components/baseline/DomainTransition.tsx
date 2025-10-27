@@ -229,7 +229,16 @@ export function DomainTransition({
           </div>
           
           <button
-            onClick={() => setIsReady(true)}
+            onClick={() => {
+              console.log('🎯 DomainTransition: User clicked "I\'m Ready! Let\'s Continue"');
+              console.log('📍 Current URL:', window.location.href);
+              console.log('💾 localStorage check:', {
+                learnerId: localStorage.getItem('current_learner_id'),
+                userRole: localStorage.getItem('user_role'),
+                onboardingFlow: localStorage.getItem('onboarding_flow')
+              });
+              setIsReady(true);
+            }}
             className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
           >
             I'm Ready! Let's Continue
@@ -237,7 +246,16 @@ export function DomainTransition({
           
           {allowSkip && (
             <button
-              onClick={() => onContinue()}
+              onClick={() => {
+                console.log('⏩ DomainTransition: User clicked "Skip break and continue"');
+                console.log('📍 Current URL:', window.location.href);
+                console.log('💾 localStorage check:', {
+                  learnerId: localStorage.getItem('current_learner_id'),
+                  userRole: localStorage.getItem('user_role'),
+                  onboardingFlow: localStorage.getItem('onboarding_flow')
+                });
+                onContinue();
+              }}
               className="w-full mt-3 py-3 text-gray-600 hover:text-gray-900 transition-colors text-sm"
             >
               Skip break and continue

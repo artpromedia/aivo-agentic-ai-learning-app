@@ -47,6 +47,50 @@ export function EnrollStudent() {
     setLoading(true);
 
     try {
+      // TEMPORARY: Skip API call and redirect directly to test the flow
+      const learnerId = 'temp-' + Date.now();
+      console.log('🧪 TESTING: Skipping API call, using temp learner ID:', learnerId);
+      
+      localStorage.setItem('current_learner_id', learnerId);
+      localStorage.setItem('learner_profile', JSON.stringify({
+        id: learnerId,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        grade_level: formData.grade_level,
+        has_iep: formData.has_iep,
+      }));
+
+      const teacherToken = localStorage.getItem('access_token');
+      
+      if (!teacherToken) {
+        console.error('❌ No teacher auth token found');
+        alert('⚠️ No authentication token found. Please log in again.');
+        navigate('/login');
+        return;
+      }
+      
+      // Store session data for cross-origin access
+      const crossOriginData = {
+        learnerId,
+        firstName: formData.first_name,
+        lastName: formData.last_name,
+        grade: formData.grade_level,
+        token: teacherToken,
+        timestamp: Date.now(),
+        source: 'teacher_portal'
+      };
+      
+      localStorage.setItem('pending_learner_session', JSON.stringify(crossOriginData));
+      
+      alert(`${formData.first_name} enrolled successfully! Redirecting to baseline assessment...`);
+      
+      // Show assessment intro page
+      navigate(`/students/assessment/${learnerId}`);
+      
+      return; // Exit early for testing
+      
+      // ORIGINAL API CODE BELOW (for when backend is ready)
+      /*
       const token = localStorage.getItem('access_token');
       
       // Convert accommodations to list of strings
@@ -97,6 +141,7 @@ export function EnrollStudent() {
       
       // Show assessment intro modal on this portal first
       navigate(`/students/assessment/${data.learner_id}`);
+      */
       
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error occurred';

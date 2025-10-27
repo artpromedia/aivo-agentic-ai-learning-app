@@ -7,7 +7,6 @@ import { LearningProfileStep } from './steps/LearningProfileStep';
 import { AccessibilityStep } from './steps/AccessibilityStep';
 import { IEPStep } from './steps/IEPStep';
 import { ConsentStep } from './steps/ConsentStep';
-import { ModelCloningStep } from './steps/ModelCloningStep';
 import {
   saveEnrollmentProgress,
   loadEnrollmentProgress,
@@ -110,7 +109,10 @@ export function EnrollmentWizard({ onComplete }: EnrollmentWizardProps) {
   const handleRoleSelection = (role: 'parent' | 'teacher') => {
     setEnrollmentRole(role);
     setLearnerData({ ...learnerData, enrollmentRole: role });
-    setCurrentStep(1); // Move to next step
+    
+    // For parents: start at step 0 (Basic Info)
+    // For teachers: start at step 0 (License validation)
+    setCurrentStep(0);
   };
 
   const handleLicenseData = (data: { licenseKey: string; studentName: string }) => {
@@ -123,7 +125,8 @@ export function EnrollmentWizard({ onComplete }: EnrollmentWizardProps) {
       firstName,
       lastName,
     });
-    setCurrentStep(2); // Move to basic info step (will be pre-filled with name)
+    // Move to next step (Basic Info, which is now step 1 for teachers)
+    setCurrentStep(currentStep + 1);
   };
 
   const validateBasicInfo = (data: Partial<LearnerData>) => {

@@ -51,12 +51,43 @@ export function Onboarding() {
       }));
 
       const parentToken = localStorage.getItem('access_token');
-      const learnerAppUrl = `http://localhost:3004/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
-      console.log('🚀 REDIRECTING to learner app assessment:', learnerAppUrl);
+      
+      if (!parentToken) {
+        console.error('❌ No parent auth token found');
+        alert('⚠️ No authentication token found. Please log in again.');
+        navigate('/login');
+        return;
+      }
+      
+      // IMPORTANT: Store the learner data in a way the learner app can access it
+      // across different origins (parent portal -> learner app)
+      const crossOriginData = {
+        learnerId,
+        firstName: learnerData.firstName || 'Test',
+        lastName: learnerData.lastName || 'Learner',
+        grade: learnerData.grade || 'K',
+        token: parentToken,
+        timestamp: Date.now(),
+      };
+      
+      // Store in localStorage (will be accessible after redirect since it's same machine)
+      localStorage.setItem('pending_learner_session', JSON.stringify(crossOriginData));
+      
+      const learnerAppUrl = `http://localhost:3003/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
+      console.log('='.repeat(80));
+      console.log('🚀 REDIRECTING TO LEARNER APP');
+      console.log('='.repeat(80));
+      console.log('📍 Current URL:', window.location.href);
+      console.log('� Target URL:', learnerAppUrl);
+      console.log('👤 Learner ID:', learnerId);
+      console.log('🔑 Token (first 20 chars):', parentToken.substring(0, 20) + '...');
+      console.log('⏰ Timestamp:', new Date().toISOString());
+      console.log('='.repeat(80));
       
       // Force immediate full page navigation to learner app
-      alert(`Testing redirect to:\n${learnerAppUrl}\n\nClick OK to continue.`);
+      console.log('✈️ REDIRECTING NOW (immediate, no delay)...');
       window.location.href = learnerAppUrl;
+      
       return; // Exit early to test redirect
       
       // ORIGINAL CODE BELOW (commented out for testing)
@@ -154,11 +185,12 @@ export function Onboarding() {
       
       // 5. Redirect to learner app for baseline assessment
       // After assessment completes, learner app will redirect back to parent portal for model cloning
-      const learnerAppUrl = `http://localhost:3004/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
+      const learnerAppUrl = `http://localhost:3003/#/onboarding/assessment?learner_id=${learnerId}&token=${parentToken}&return_to=model_cloning`;
       console.log('🚀 REDIRECTING to learner app assessment:', learnerAppUrl);
       
       // Force immediate full page navigation to learner app
       window.location.href = learnerAppUrl;
+      */
 
     } catch (error) {
       console.error('❌ Error creating learner:', error);

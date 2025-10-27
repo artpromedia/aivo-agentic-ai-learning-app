@@ -1,36 +1,108 @@
-import { useState } from 'react';
-import { getSchools } from '../utils/mockData';
+import { useState, useEffect } from 'react';
+import { schoolAPI, type School } from '../services/api';
 
 export default function SchoolManagement() {
-  const allSchools = getSchools();
+  const [allSchools, setAllSchools] = useState<School[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'needs-attention'>('all');
+
+  // Fetch schools on component mount
+  useEffect(() => {
+    fetchSchools();
+  }, []);
+
+  const fetchSchools = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const schools = await schoolAPI.list({ limit: 500 });
+      setAllSchools(schools);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load schools');
+      console.error('Error fetching schools:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddSchool = async (schoolData: any) => {
+    try {
+      await schoolAPI.create(schoolData);
+      await fetchSchools(); // Refresh the list
+      setShowAddModal(false);
+    } catch (err) {
+      console.error('Error creating school:', err);
+      alert(err instanceof Error ? err.message : 'Failed to create school');
+    }
+  };
+
+  const handleToggleStatus = async (schoolId: string, currentStatus: boolean) => {
+    try {
+      if (currentStatus) {
+        await schoolAPI.deactivate(schoolId);
+      } else {
+        await schoolAPI.activate(schoolId);
+      }
+      await fetchSchools(); // Refresh the list
+    } catch (err) {
+      console.error('Error toggling school status:', err);
+      alert(err instanceof Error ? err.message : 'Failed to update school status');
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-neutral-600">Loading schools...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={fetchSchools}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Filter schools
   const filteredSchools = allSchools.filter((school) => {
     const matchesSearch =
-      school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      school.principal.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      school.city.toLowerCase().includes(searchTerm.toLowerCase());
+      school.school_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (school.principal_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (school.city || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesFilter =
       filterStatus === 'all' ||
-      (filterStatus === 'active' && school.iepComplianceRate >= 90) ||
-      (filterStatus === 'needs-attention' && (school.iepComplianceRate < 90 || school.averageProgress < 75));
+      (filterStatus === 'active' && school.is_active) ||
+      (filterStatus === 'needs-attention' && (!school.is_active || school.seats_used >= school.seats_allocated * 0.9));
 
     return matchesSearch && matchesFilter;
   });
 
   // Calculate district totals
   const districtTotals = {
-    totalStudents: allSchools.reduce((sum, s) => sum + s.totalStudents, 0),
-    totalTeachers: allSchools.reduce((sum, s) => sum + s.totalTeachers, 0),
-    avgCompliance: Math.floor(
-      allSchools.reduce((sum, s) => sum + s.iepComplianceRate, 0) / allSchools.length
-    ),
-    avgProgress: Math.floor(
-      allSchools.reduce((sum, s) => sum + s.averageProgress, 0) / allSchools.length
-    ),
+    totalSchools: allSchools.length,
+    activeSchools: allSchools.filter(s => s.is_active).length,
+    totalSeatsAllocated: allSchools.reduce((sum, s) => sum + s.seats_allocated, 0),
+    totalSeatsUsed: allSchools.reduce((sum, s) => sum + s.seats_used, 0),
   };
 
   return (
@@ -43,7 +115,10 @@ export default function SchoolManagement() {
             Manage {allSchools.length} schools across the district
           </p>
         </div>
-        <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+        >
           + Add New School
         </button>
       </div>
@@ -52,23 +127,23 @@ export default function SchoolManagement() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl p-5 shadow-sm border border-neutral-200">
           <p className="text-sm font-medium text-neutral-600">Total Schools</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-2">{allSchools.length}</p>
+          <p className="text-3xl font-bold text-neutral-900 mt-2">{districtTotals.totalSchools}</p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-neutral-200">
-          <p className="text-sm font-medium text-neutral-600">Total Students</p>
+          <p className="text-sm font-medium text-neutral-600">Active Schools</p>
+          <p className="text-3xl font-bold text-neutral-900 mt-2">{districtTotals.activeSchools}</p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-neutral-200">
+          <p className="text-sm font-medium text-neutral-600">Total Seats</p>
           <p className="text-3xl font-bold text-neutral-900 mt-2">
-            {districtTotals.totalStudents.toLocaleString()}
+            {districtTotals.totalSeatsAllocated.toLocaleString()}
           </p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-neutral-200">
-          <p className="text-sm font-medium text-neutral-600">Total Teachers</p>
+          <p className="text-sm font-medium text-neutral-600">Seats Used</p>
           <p className="text-3xl font-bold text-neutral-900 mt-2">
-            {districtTotals.totalTeachers.toLocaleString()}
+            {districtTotals.totalSeatsUsed.toLocaleString()}
           </p>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-neutral-200">
-          <p className="text-sm font-medium text-neutral-600">Avg Compliance</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-2">{districtTotals.avgCompliance}%</p>
         </div>
       </div>
 
@@ -138,19 +213,19 @@ export default function SchoolManagement() {
                   Location
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 uppercase tracking-wider">
-                  Students
+                  Status
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 uppercase tracking-wider">
-                  Teachers
+                  Seats Allocated
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 uppercase tracking-wider">
-                  IEP Compliance
+                  Seats Used
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 uppercase tracking-wider">
-                  Avg Progress
+                  Available
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-neutral-600 uppercase tracking-wider">
-                  Licenses
+                  District
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-neutral-600 uppercase tracking-wider">
                   Actions
@@ -158,97 +233,100 @@ export default function SchoolManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
-              {filteredSchools.map((school) => (
-                <tr key={school.id} className="hover:bg-neutral-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">{school.name}</p>
-                      <p className="text-xs text-neutral-500 mt-1">
-                        Active: {school.activeStudents}/{school.totalStudents} students
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="text-sm text-neutral-900">{school.principal}</p>
-                      <p className="text-xs text-neutral-500 mt-1">{school.principalEmail}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="text-sm text-neutral-900">{school.city}, {school.state}</p>
-                      <p className="text-xs text-neutral-500 mt-1">{school.zipCode}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <p className="text-sm font-semibold text-neutral-900">{school.totalStudents}</p>
-                    <p className="text-xs text-green-600">
-                      {Math.floor((school.activeStudents / school.totalStudents) * 100)}% active
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <p className="text-sm font-semibold text-neutral-900">{school.totalTeachers}</p>
-                    <p className="text-xs text-neutral-500">{school.activeTeachers} active</p>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex flex-col items-center">
+              {filteredSchools.map((school) => {
+                const seatsUsagePercent = school.seats_allocated > 0 
+                  ? Math.floor((school.seats_used / school.seats_allocated) * 100) 
+                  : 0;
+
+                return (
+                  <tr key={school.id} className="hover:bg-neutral-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-900">{school.school_name}</p>
+                        <p className="text-xs text-neutral-500 mt-1">
+                          {school.school_code || 'No code'}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm text-neutral-900">{school.principal_name || 'Not assigned'}</p>
+                        <p className="text-xs text-neutral-500 mt-1">{school.principal_email || '-'}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm text-neutral-900">
+                          {school.city && school.state ? `${school.city}, ${school.state}` : 'Not set'}
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-1">{school.postal_code || '-'}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
                       <span
                         className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                          school.iepComplianceRate >= 95
+                          school.is_active
                             ? 'bg-green-100 text-green-700'
-                            : school.iepComplianceRate >= 90
-                            ? 'bg-blue-100 text-blue-700'
-                            : school.iepComplianceRate >= 85
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
                         }`}
                       >
-                        {school.iepComplianceRate}%
+                        {school.is_active ? 'Active' : 'Inactive'}
                       </span>
-                      <p className="text-xs text-neutral-500 mt-1">
-                        {school.specialEducationStats.overdueReviews} overdue
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <p className="text-sm font-semibold text-neutral-900">{school.seats_allocated}</p>
+                      <p className="text-xs text-neutral-500">allocated</p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <p className="text-sm font-semibold text-neutral-900">{school.seats_used}</p>
+                      <p className="text-xs text-green-600">
+                        {seatsUsagePercent}% used
                       </p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm font-semibold text-neutral-900">
-                        {school.averageProgress}%
-                      </span>
-                      <div className="w-16 h-1.5 bg-neutral-100 rounded-full overflow-hidden mt-1">
-                        <div
-                          className={`h-full rounded-full ${
-                            school.averageProgress >= 85
-                              ? 'bg-green-500'
-                              : school.averageProgress >= 75
-                              ? 'bg-blue-500'
-                              : 'bg-amber-500'
-                          }`}
-                          style={{ width: `${school.averageProgress}%` }}
-                        />
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm font-semibold text-neutral-900">
+                          {school.seats_allocated - school.seats_used}
+                        </span>
+                        <div className="w-16 h-1.5 bg-neutral-100 rounded-full overflow-hidden mt-1">
+                          <div
+                            className={`h-full rounded-full ${
+                              seatsUsagePercent >= 90
+                                ? 'bg-red-500'
+                                : seatsUsagePercent >= 75
+                                ? 'bg-amber-500'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${seatsUsagePercent}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <p className="text-sm font-semibold text-neutral-900">
-                      {school.licenseUsage}/{school.licenseCount}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {Math.floor((school.licenseUsage / school.licenseCount) * 100)}% used
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button className="px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                        View Details
-                      </button>
-                      <button className="px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">
-                        Edit
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <p className="text-xs text-neutral-500">
+                        {school.district_name || 'District'}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => handleToggleStatus(school.id, school.is_active)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                            school.is_active
+                              ? 'text-amber-600 hover:bg-amber-50'
+                              : 'text-green-600 hover:bg-green-50'
+                          }`}
+                        >
+                          {school.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button className="px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -270,38 +348,139 @@ export default function SchoolManagement() {
         )}
       </div>
 
-      {/* School Performance Comparison Chart */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-        <h2 className="text-lg font-semibold text-neutral-900 mb-6">School Performance Comparison</h2>
-        <div className="space-y-4">
-          {allSchools
-            .sort((a, b) => b.averageProgress - a.averageProgress)
-            .map((school) => (
-              <div key={school.id} className="flex items-center space-x-4">
-                <div className="w-48 flex-shrink-0">
-                  <p className="text-sm font-medium text-neutral-900 truncate">{school.name}</p>
+      {/* Add School Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-neutral-900 mb-4">Add New School</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleAddSchool({
+                  district_id: formData.get('district_id') as string,
+                  school_name: formData.get('school_name') as string,
+                  school_code: formData.get('school_code') as string,
+                  address: formData.get('address') as string,
+                  city: formData.get('city') as string,
+                  state: formData.get('state') as string,
+                  postal_code: formData.get('postal_code') as string,
+                  principal_name: formData.get('principal_name') as string,
+                  principal_email: formData.get('principal_email') as string,
+                  admin_email: formData.get('admin_email') as string,
+                  seats_allocated: parseInt(formData.get('seats_allocated') as string) || 0,
+                });
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  School Name *
+                </label>
+                <input
+                  type="text"
+                  name="school_name"
+                  required
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  District ID *
+                </label>
+                <input
+                  type="text"
+                  name="district_id"
+                  required
+                  placeholder="Enter district UUID"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  School Code
+                </label>
+                <input
+                  type="text"
+                  name="school_code"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Principal Name
+                </label>
+                <input
+                  type="text"
+                  name="principal_name"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Principal Email
+                </label>
+                <input
+                  type="email"
+                  name="principal_email"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-1 h-8 bg-neutral-100 rounded-lg overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-end px-3"
-                        style={{ width: `${school.averageProgress}%` }}
-                      >
-                        <span className="text-xs font-semibold text-white">
-                          {school.averageProgress}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-20 text-right">
-                      <span className="text-xs text-neutral-600">{school.totalStudents} students</span>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    name="state"
+                    maxLength={2}
+                    placeholder="CA"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
                 </div>
               </div>
-            ))}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Seats Allocated
+                </label>
+                <input
+                  type="number"
+                  name="seats_allocated"
+                  defaultValue={0}
+                  min={0}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Add School
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.v1 import auth  # pylint: disable=import-error
 from app.api.v1 import admin  # pylint: disable=import-error
 from app.api.v1 import ai  # pylint: disable=import-error
+from app.api.v1.parent import dashboard as parent_dashboard  # pylint: disable=import-error
 from app.api.v1.endpoints import (  # pylint: disable=import-error
     health,
     users,
@@ -72,3 +73,10 @@ api_router.include_router(baseline_assessment.router)
 
 # Admin routes (requires admin role)
 api_router.include_router(admin.router)
+
+# Parent routes (requires parent authentication)
+api_router.include_router(
+    parent_dashboard.router,
+    prefix="/parent",
+    tags=["parent"]
+)

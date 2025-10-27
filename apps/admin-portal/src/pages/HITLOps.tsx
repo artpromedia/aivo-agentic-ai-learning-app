@@ -1,4 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const API_BASE_URL = 'http://127.0.0.1:9000/api/v1/admin';
+
+interface HITLQueueItem {
+  id: number;
+  type: string;
+  content: string;
+  context: Record<string, unknown> | null;
+  ai_metadata: Record<string, unknown> | null;
+  status: 'pending' | 'in_review' | 'approved' | 'rejected' | 'escalated';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assigned_to: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface HITLStats {
+  total: number;
+  pending: number;
+  in_review: number;
+  approved_today: number;
+  rejected_today: number;
+}
 
 /**
  * HITL Operations - Human-in-the-Loop Operations
@@ -13,8 +39,12 @@ interface ReviewData {
 }
 
 export const HITLOps: React.FC = () => {
+  const [queueItems, setQueueItems] = useState<HITLQueueItem[]>([]);
+  const [stats, setStats] = useState<HITLStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<HITLQueueItem | null>(null);
   const [reviewData, setReviewData] = useState<ReviewData>({
     decision: '',
     confidence: 0,
@@ -22,39 +52,163 @@ export const HITLOps: React.FC = () => {
     escalate: false
   });
 
-  const handleReview = (item: any) => {
+  useEffect(() => {
+    fetchQueueItems();
+    fetchStats();
+  }, []);
+
+  const fetchQueueItems = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/hitl?status=pending&status=in_review&limit=50`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch queue items: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setQueueItems(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch queue items';
+      setError(errorMessage);
+      console.error('Error fetching queue:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/hitl/stats/summary`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats');
+      }
+      
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  };
+
+  const handleReview = (item: HITLQueueItem) => {
     setSelectedItem(item);
     setShowReviewModal(true);
   };
 
-  const handleSubmitReview = () => {
-    if (!reviewData.decision) {
+  const handleSubmitReview = async () => {
+    if (!reviewData.decision || !selectedItem) {
       alert('Please select a decision');
       return;
     }
-    alert(`Review submitted: ${reviewData.decision} for ${selectedItem.id}`);
-    setShowReviewModal(false);
-    setReviewData({
-      decision: '',
-      confidence: 0,
-      feedback: '',
-      escalate: false
-    });
-  };
-  const queueMetrics = {
-    pending: 247,
-    reviewedToday: 156,
-    target: 200,
-    lowConfidence: 89,
-    reviewerAccuracy: 96.5,
+
+    try {
+      const endpoint = reviewData.decision === 'approve' 
+        ? `${API_BASE_URL}/hitl/${selectedItem.id}/approve`
+        : `${API_BASE_URL}/hitl/${selectedItem.id}/reject`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notes: reviewData.feedback || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit review: ${response.statusText}`);
+      }
+
+      // Refresh queue after successful review
+      await fetchQueueItems();
+      await fetchStats();
+
+      setShowReviewModal(false);
+      setReviewData({
+        decision: '',
+        confidence: 0,
+        feedback: '',
+        escalate: false
+      });
+      setSelectedItem(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit review';
+      alert(`Error: ${errorMessage}`);
+      console.error('Error submitting review:', err);
+    }
   };
 
-  const queueItems = [
-    { id: 'A-1234', student: 'Emma S.', subject: 'Reading', confidence: 65, reason: 'Low confidence score', priority: 'high', wait: '6 hours' },
-    { id: 'A-1235', student: 'Liam T.', subject: 'Math', confidence: 68, reason: 'Conflicting responses', priority: 'medium', wait: '3 hours' },
-    { id: 'A-1236', student: 'Olivia M.', subject: 'Writing', confidence: 62, reason: 'Unusual pattern detected', priority: 'high', wait: '8 hours' },
-    { id: 'A-1237', student: 'Noah K.', subject: 'Science', confidence: 71, reason: 'Edge case detected', priority: 'medium', wait: '2 hours' },
-  ];
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-700';
+      case 'high': return 'bg-orange-100 text-orange-700';
+      case 'medium': return 'bg-yellow-100 text-yellow-700';
+      case 'low': return 'bg-green-100 text-green-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getConfidenceFromMetadata = (item: HITLQueueItem): number => {
+    if (item.ai_metadata && typeof item.ai_metadata === 'object' && 'confidence' in item.ai_metadata) {
+      return typeof item.ai_metadata.confidence === 'number' ? item.ai_metadata.confidence : 0;
+    }
+    return 0;
+  };
+
+  const getWaitTime = (createdAt: string): string => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffHours = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60));
+    
+    if (diffHours < 1) return '< 1 hour';
+    if (diffHours === 1) return '1 hour';
+    return `${diffHours} hours`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <p className="mt-2 text-gray-600">Loading HITL queue...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-800">Error: {error}</p>
+        <button 
+          onClick={fetchQueueItems}
+          className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const queueMetrics = {
+    pending: stats?.pending || 0,
+    reviewedToday: (stats?.approved_today || 0) + (stats?.rejected_today || 0),
+    target: 200,
+    lowConfidence: queueItems.filter(item => getConfidenceFromMetadata(item) < 70).length,
+    reviewerAccuracy: 96.5,
+  };
 
   const reviewers = [
     { name: 'Sarah Chen', reviewed: 45, accuracy: 98.2, avgTime: '2.1 min', status: 'active' },
@@ -121,33 +275,48 @@ export const HITLOps: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {queueItems.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.id}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{item.student}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{item.subject}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${item.confidence < 70 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {item.confidence}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{item.reason}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${item.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {item.priority}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{item.wait}</td>
-                  <td className="px-6 py-4">
-                    <button 
-                      onClick={() => handleReview(item)}
-                      className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 shadow-sm hover:shadow-md transition-all"
-                    >
-                      Review
-                    </button>
+              {queueItems.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    No items in queue
                   </td>
                 </tr>
-              ))}
+              ) : (
+                queueItems.map((item) => {
+                  const confidence = getConfidenceFromMetadata(item);
+                  const context = item.context as Record<string, string> | null;
+                  const student = context?.learner_id || context?.student || 'Unknown';
+                  const subject = context?.subject || item.type;
+                  
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.id}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{student}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{subject}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${confidence < 70 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {confidence}%
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{item.type.replace(/_/g, ' ')}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(item.priority)}`}>
+                          {item.priority}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{getWaitTime(item.created_at)}</td>
+                      <td className="px-6 py-4">
+                        <button 
+                          onClick={() => handleReview(item)}
+                          className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 shadow-sm hover:shadow-md transition-all"
+                        >
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -194,57 +363,63 @@ export const HITLOps: React.FC = () => {
           <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">Human Review Required</h2>
-              <p className="text-gray-600 mt-1">Assessment ID: {selectedItem.id}</p>
+              <p className="text-gray-600 mt-1">Item ID: {selectedItem.id} | Type: {selectedItem.type.replace(/_/g, ' ')}</p>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Student Info */}
+              {/* Item Info */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Student Information</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">Item Information</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">Student:</span>
-                    <span className="ml-2 font-medium text-gray-900">{selectedItem.student}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Subject:</span>
-                    <span className="ml-2 font-medium text-gray-900">{selectedItem.subject}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">AI Confidence:</span>
-                    <span className={`ml-2 font-medium ${selectedItem.confidence < 70 ? 'text-red-600' : 'text-amber-600'}`}>
-                      {selectedItem.confidence}%
+                    <span className="text-gray-600">Priority:</span>
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(selectedItem.priority)}`}>
+                      {selectedItem.priority}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Reason:</span>
-                    <span className="ml-2 font-medium text-gray-900">{selectedItem.reason}</span>
+                    <span className="text-gray-600">Status:</span>
+                    <span className="ml-2 font-medium text-gray-900">{selectedItem.status}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">AI Confidence:</span>
+                    <span className={`ml-2 font-medium ${getConfidenceFromMetadata(selectedItem) < 70 ? 'text-red-600' : 'text-amber-600'}`}>
+                      {getConfidenceFromMetadata(selectedItem)}%
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Wait Time:</span>
+                    <span className="ml-2 font-medium text-gray-900">{getWaitTime(selectedItem.created_at)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* AI Prediction */}
+              {/* Content */}
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <h3 className="font-semibold text-gray-900 mb-2">AI Prediction</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">Content to Review</h3>
                 <div className="text-sm space-y-2">
                   <div>
-                    <span className="text-gray-600">Predicted Answer:</span>
+                    <span className="text-gray-600">Content:</span>
                     <div className="mt-1 p-2 bg-white rounded border border-blue-200">
-                      <p className="text-gray-900">The answer is <strong>B: Photosynthesis</strong></p>
+                      <p className="text-gray-900">{selectedItem.content}</p>
                     </div>
                   </div>
-                  <div>
-                    <span className="text-gray-600">Student Response:</span>
-                    <div className="mt-1 p-2 bg-white rounded border border-blue-200">
-                      <p className="text-gray-900">"The process where plants make food from sunlight"</p>
+                  {selectedItem.context && (
+                    <div>
+                      <span className="text-gray-600">Context:</span>
+                      <div className="mt-1 p-2 bg-white rounded border border-blue-200">
+                        <pre className="text-xs text-gray-700 whitespace-pre-wrap">{JSON.stringify(selectedItem.context, null, 2)}</pre>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Reasoning:</span>
-                    <div className="mt-1 p-2 bg-white rounded border border-blue-200 text-xs">
-                      <p className="text-gray-700">Student's written response matches concept but doesn't use exact terminology. Confidence score reduced due to ambiguity.</p>
+                  )}
+                  {selectedItem.ai_metadata && (
+                    <div>
+                      <span className="text-gray-600">AI Metadata:</span>
+                      <div className="mt-1 p-2 bg-white rounded border border-blue-200 text-xs">
+                        <pre className="text-gray-700 whitespace-pre-wrap">{JSON.stringify(selectedItem.ai_metadata, null, 2)}</pre>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 

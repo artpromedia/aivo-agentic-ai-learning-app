@@ -8,6 +8,13 @@ export function SetupPin() {
   const [step, setStep] = useState<'create' | 'confirm'>('create');
   const [error, setError] = useState('');
 
+  const handleSkip = () => {
+    // Mark PIN as skipped and go to subjects
+    localStorage.setItem('pin_setup_skipped', 'true');
+    console.log('⏭️ PIN setup skipped, going to subjects...');
+    navigate('/subjects');
+  };
+
   const handleNumberClick = (num: string) => {
     if (step === 'create' && pin.length < 4) {
       setPin(pin + num);
@@ -132,6 +139,19 @@ export function SetupPin() {
             ? '💡 Choose numbers you can remember!' 
             : '✨ Almost there!'}
         </p>
+
+        {/* Skip Button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={handleSkip}
+            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-8 py-3 rounded-2xl text-lg font-semibold border-2 border-white/40 hover:border-white/60 transition-all duration-200 transform hover:scale-105"
+          >
+            ⏭️ Skip for Now
+          </button>
+          <p className="text-white/70 text-sm mt-2">
+            You can set up a PIN later from Settings
+          </p>
+        </div>
 
         <style>{`
           @keyframes shake {

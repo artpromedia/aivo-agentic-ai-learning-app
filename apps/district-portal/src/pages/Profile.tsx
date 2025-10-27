@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ChangeEvent } from 'react';
 import { useAuth } from '@aivo/auth';
+import { userAPI } from '../services/api';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
@@ -9,23 +10,72 @@ export default function Profile() {
     email: user?.email || '',
     avatar: user?.avatar || '',
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
     try {
-      updateUser(formData);
+      // 1. Upload avatar first (if changed)
+      let avatarUrl = formData.avatar;
+      if (avatarFile) {
+        const avatarResult = await userAPI.uploadAvatar(avatarFile);
+        avatarUrl = avatarResult.avatar_url;
+      }
+
+      // 2. Update profile
+      const updatedUser = await userAPI.updateMyProfile({
+        full_name: formData.name,
+        email: formData.email,
+      });
+
+      // 3. Update local auth state
+      updateUser({
+        name: updatedUser.full_name,
+        email: updatedUser.email,
+        avatar: avatarUrl || updatedUser.avatar || formData.avatar,
+      });
+
+      setSaveSuccess(true);
       setIsEditing(false);
-      // Show success message
+      setAvatarFile(null);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      // Show error message
+      setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleAvatarUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // In production, upload to server and get URL
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSaveError('Please select an image file (JPEG, PNG, WEBP)');
+        return;
+      }
+
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveError('Image must be less than 5MB');
+        return;
+      }
+
+      // Store file for upload
+      setAvatarFile(file);
+      setSaveError(null);
+
+      // Show preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData({ ...formData, avatar: reader.result as string });
@@ -66,12 +116,13 @@ export default function Profile() {
                 className="w-32 h-32 rounded-full border-4 border-white shadow-lg"
               />
               {isEditing && (
-                <label className="absolute bottom-0 right-0 p-2 bg-indigo-600 rounded-full cursor-pointer hover:bg-indigo-700 transition-colors">
+                <label className={`absolute bottom-0 right-0 p-2 bg-indigo-600 rounded-full transition-colors ${isSaving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-indigo-700'}`}>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleAvatarUpload}
                     className="hidden"
+                    disabled={isSaving}
                   />
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -95,6 +146,13 @@ export default function Profile() {
           {/* Profile Form */}
           {isEditing ? (
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Error Message */}
+              {saveError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{saveError}</p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -104,8 +162,9 @@ export default function Profile() {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
                     required
+                    disabled={isSaving}
                   />
                 </div>
                 <div>
@@ -116,8 +175,9 @@ export default function Profile() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
                     required
+                    disabled={isSaving}
                   />
                 </div>
               </div>
@@ -132,21 +192,32 @@ export default function Profile() {
                       email: user?.email || '',
                       avatar: user?.avatar || '',
                     });
+                    setAvatarFile(null);
+                    setSaveError(null);
                   }}
-                  className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                  className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSaving}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSaving}
                 >
-                  Save Changes
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
           ) : (
             <div className="space-y-6">
+              {/* Success Message */}
+              {saveSuccess && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700">✓ Profile updated successfully!</p>
+                </div>
+              )}
+
               {/* Account Information */}
               <div>
                 <h3 className="text-lg font-semibold text-neutral-900 mb-4">Account Information</h3>

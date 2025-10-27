@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { useAuth, changePassword, validatePasswordStrength, setup2FA, enable2FA, TokenManager } from '@aivo/auth';
 import type { TwoFactorSetup as TwoFactorSetupData } from '@aivo/auth';
+import { settingsAPI, type GeneralSettings, type NotificationSettings, type PreferenceSettings, type UserSession } from '../services/api';
 
 type SettingsTab = 'general' | 'security' | 'notifications' | 'preferences';
 
@@ -59,17 +60,81 @@ function GeneralSettings() {
     dateFormat: 'MM/DD/YYYY',
     timeFormat: '12h',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await settingsAPI.getGeneral();
+        setFormData({
+          language: data.language,
+          timezone: data.timezone,
+          dateFormat: data.date_format,
+          timeFormat: data.time_format,
+        });
+      } catch (err) {
+        console.error('Failed to load general settings:', err);
+        setError('Failed to load settings. Using defaults.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Save settings
-    console.log('General settings saved:', formData);
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(false);
+      
+      await settingsAPI.updateGeneral({
+        language: formData.language,
+        timezone: formData.timezone,
+        date_format: formData.dateFormat,
+        time_format: formData.timeFormat,
+      });
+      
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save general settings:', err);
+      setError('Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900 mb-4">General Settings</h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+            Settings saved successfully!
+          </div>
+        )}
         
         <div className="space-y-4">
           <div>
@@ -140,9 +205,10 @@ function GeneralSettings() {
       <div className="flex justify-end">
         <button
           type="submit"
-          className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          disabled={saving}
+          className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save Changes
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
     </form>
@@ -235,25 +301,120 @@ function SecuritySettings() {
       {/* Active Sessions Section */}
       <div className="border-t border-neutral-200 pt-6">
         <h3 className="text-lg font-semibold text-neutral-900 mb-4">Active Sessions</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
-            <div className="flex items-center">
-              <div className="p-2 bg-indigo-100 rounded-lg mr-4">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-medium text-neutral-900">Current Session</p>
-                <p className="text-sm text-neutral-600">Windows • Chrome • New York, NY</p>
-              </div>
+        <ActiveSessions />
+      </div>
+    </div>
+  );
+}
+
+// Active Sessions Component
+function ActiveSessions() {
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadSessions = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await settingsAPI.getSessions();
+      setSessions(data);
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+      setError('Failed to load sessions. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  const handleLogout = async (sessionId: number) => {
+    if (!confirm('Are you sure you want to log out from this device?')) {
+      return;
+    }
+
+    try {
+      await settingsAPI.deleteSession(sessionId);
+      setSessions(sessions.filter(s => s.id !== sessionId));
+    } catch (err) {
+      console.error('Failed to logout session:', err);
+      alert('Failed to logout from device. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+        {error}
+        <button
+          onClick={loadSessions}
+          className="ml-3 text-red-900 underline hover:no-underline"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-600 text-sm">
+        No active sessions found.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sessions.map((session) => (
+        <div key={session.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+          <div className="flex items-center">
+            <div className="p-2 bg-indigo-100 rounded-lg mr-4">
+              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
             </div>
-            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-              Active Now
-            </span>
+            <div>
+              <p className="font-medium text-neutral-900">
+                {session.is_current === 'true' ? 'Current Session' : 'Active Session'}
+              </p>
+              <p className="text-sm text-neutral-600">
+                {session.device_name && `${session.device_name} • `}
+                {session.browser && `${session.browser} • `}
+                {session.location || 'Unknown Location'}
+              </p>
+              <p className="text-xs text-neutral-500 mt-1">
+                Last active: {new Date(session.last_activity).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {session.is_current === 'true' ? (
+              <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                Active Now
+              </span>
+            ) : (
+              <button
+                onClick={() => handleLogout(session.id)}
+                className="px-3 py-1 bg-red-50 text-red-700 border border-red-200 text-xs font-medium rounded-lg hover:bg-red-100 transition-colors"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -552,10 +713,71 @@ function NotificationSettings() {
     weeklyDigest: false,
     marketingEmails: false,
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const handleToggle = (key: keyof typeof settings) => {
-    setSettings({ ...settings, [key]: !settings[key] });
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await settingsAPI.getNotifications();
+        setSettings({
+          emailNotifications: data.email_notifications === 'true',
+          pushNotifications: data.push_notifications === 'true',
+          newMessages: data.new_messages === 'true',
+          progressReports: data.progress_reports === 'true',
+          iepReminders: data.iep_reminders === 'true',
+          milestoneAlerts: data.milestone_alerts === 'true',
+          weeklyDigest: data.weekly_digest === 'true',
+          marketingEmails: data.marketing_emails === 'true',
+        });
+      } catch (err) {
+        console.error('Failed to load notification settings:', err);
+        setError('Failed to load settings. Using defaults.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleToggle = async (key: keyof typeof settings) => {
+    const newValue = !settings[key];
+    setSettings({ ...settings, [key]: newValue });
+    
+    try {
+      setSaving(true);
+      setError(null);
+      
+      // Convert camelCase to snake_case for API
+      const apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      const updateData: Partial<NotificationSettings> = {
+        [apiKey]: newValue ? 'true' : 'false',
+      } as Partial<NotificationSettings>;
+      await settingsAPI.updateNotifications(updateData);
+      
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to update notification setting:', err);
+      setError('Failed to save setting. Please try again.');
+      // Revert the change on error
+      setSettings({ ...settings, [key]: !newValue });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -565,6 +787,18 @@ function NotificationSettings() {
           Choose how you want to be notified about updates and activity
         </p>
       </div>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+          Setting saved successfully!
+        </div>
+      )}
 
       <div className="space-y-4">
         {Object.entries({
@@ -581,7 +815,8 @@ function NotificationSettings() {
             <span className="text-neutral-900">{label}</span>
             <button
               onClick={() => handleToggle(key as keyof typeof settings)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              disabled={saving}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
                 settings[key as keyof typeof settings] ? 'bg-indigo-600' : 'bg-neutral-300'
               }`}
             >
@@ -594,14 +829,6 @@ function NotificationSettings() {
           </div>
         ))}
       </div>
-
-      <div className="flex justify-end pt-4">
-        <button
-          className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          Save Changes
-        </button>
-      </div>
     </div>
   );
 }
@@ -613,6 +840,62 @@ function PreferenceSettings() {
     dashboardLayout: 'detailed',
     defaultView: 'dashboard',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await settingsAPI.getPreferences();
+        setSettings({
+          theme: data.theme,
+          dashboardLayout: data.dashboard_layout,
+          defaultView: data.default_view,
+        });
+      } catch (err) {
+        console.error('Failed to load preference settings:', err);
+        setError('Failed to load settings. Using defaults.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleChange = async (key: keyof typeof settings, value: string) => {
+    setSettings({ ...settings, [key]: value });
+    
+    try {
+      setSaving(true);
+      setError(null);
+      
+      // Convert camelCase to snake_case for API
+      const apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      await settingsAPI.updatePreferences({
+        [apiKey]: value,
+      } as Partial<PreferenceSettings>);
+      
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to update preference:', err);
+      setError('Failed to save preference. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -623,6 +906,18 @@ function PreferenceSettings() {
         </p>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+          Preference saved successfully!
+        </div>
+      )}
+
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -630,8 +925,9 @@ function PreferenceSettings() {
           </label>
           <select
             value={settings.theme}
-            onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
-            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            onChange={(e) => handleChange('theme', e.target.value)}
+            disabled={saving}
+            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
@@ -645,8 +941,9 @@ function PreferenceSettings() {
           </label>
           <select
             value={settings.dashboardLayout}
-            onChange={(e) => setSettings({ ...settings, dashboardLayout: e.target.value })}
-            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            onChange={(e) => handleChange('dashboardLayout', e.target.value)}
+            disabled={saving}
+            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
           >
             <option value="compact">Compact</option>
             <option value="detailed">Detailed</option>
@@ -660,22 +957,15 @@ function PreferenceSettings() {
           </label>
           <select
             value={settings.defaultView}
-            onChange={(e) => setSettings({ ...settings, defaultView: e.target.value })}
-            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            onChange={(e) => handleChange('defaultView', e.target.value)}
+            disabled={saving}
+            className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
           >
             <option value="dashboard">Dashboard</option>
             <option value="students">Students</option>
             <option value="messages">Messages</option>
           </select>
         </div>
-      </div>
-
-      <div className="flex justify-end pt-4">
-        <button
-          className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          Save Changes
-        </button>
       </div>
     </div>
   );

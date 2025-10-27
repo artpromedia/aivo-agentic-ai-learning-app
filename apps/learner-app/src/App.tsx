@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { ThemeProvider, LearnerErrorBoundary } from '@aivo/ui';
 import { LearnerProtectedRoute } from './components/LearnerProtectedRoute';
+import { OnboardingGuard } from './components/OnboardingGuard';
 import Login from './pages/Login';
 import Unauthorized from './pages/Unauthorized';
 import Profile from './pages/Profile';
@@ -14,9 +15,8 @@ import { SensoryProfileSetup } from './components/SensoryProfile';
 import { SelfRegulationHub } from './components/SelfRegulation';
 import { ExecutiveFunctionPage } from './pages/ExecutiveFunction';
 import { SubjectSelection } from './pages/SubjectSelection';
-import { ModelCloning } from './pages/ModelCloning';
-import { BaselineAssessment } from './pages/BaselineAssessment'; // OLD - kept for backwards compatibility
-import { NewBaselineAssessment } from './pages/NewBaselineAssessment'; // NEW comprehensive assessment
+import { ExplainableModelCloning } from './components/ExplainableModelCloning';
+import { NewBaselineAssessment } from './pages/NewBaselineAssessment'; // Comprehensive assessment
 import { OnboardingAssessment } from './pages/OnboardingAssessment';
 import { SetupPin } from './pages/SetupPin';
 import { AssessmentResults } from './pages/AssessmentResults';
@@ -29,6 +29,12 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { GradeBasedThemeSync } from './components/GradeBasedThemeSync';
 import { ConnectivityBanner } from './components/ConnectivityBanner';
+
+// Wrapper component to dynamically get learner ID
+function ModelCloningWrapper() {
+  const learnerId = localStorage.getItem('current_learner_id') || localStorage.getItem('user_id') || '';
+  return <ExplainableModelCloning learnerId={learnerId} />;
+}
 
 // Lazy load heavy components
 const LearnerResultsPage = lazy(() =>
@@ -171,8 +177,22 @@ function App() {
           {/* Onboarding Routes - Public for new learners */}
           <Route path="/onboarding/assessment" element={<OnboardingAssessment />} />
           <Route path="/setup-pin" element={<SetupPin />} />
-          <Route path="/cloning" element={<ModelCloning />} />
-          <Route path="/subjects" element={<SubjectSelection />} />
+          <Route 
+            path="/cloning" 
+            element={<ModelCloningWrapper />} 
+          />
+          
+          {/* Subjects - Protected by OnboardingGuard (requires assessment + cloning) */}
+          <Route 
+            path="/subjects" 
+            element={
+              <LearnerProtectedRoute>
+                <OnboardingGuard>
+                  <SubjectSelection />
+                </OnboardingGuard>
+              </LearnerProtectedRoute>
+            } 
+          />
           
           {/* Dev Routes - Public for testing */}
           <Route path="/dev/routes" element={<DevRoutes />} />
@@ -220,7 +240,7 @@ function App() {
           
           {/* Demo Routes - No Authentication Required */}
           <Route path="/demo/assessment" element={<NewBaselineAssessment />} />
-          <Route path="/demo/cloning" element={<ModelCloning />} />
+          <Route path="/demo/cloning" element={<ModelCloningWrapper />} />
           <Route path="/demo/results" element={<AssessmentResults />} />
           <Route path="/demo/assessment-results" element={<AssessmentResultsPage />} />
           <Route 

@@ -17,11 +17,18 @@ export function LearnerProtectedRoute({ children }: LearnerProtectedRouteProps) 
   const learnerId = localStorage.getItem('current_learner_id');
   const userRole = localStorage.getItem('user_role');
   
+  console.log('🛡️ LearnerProtectedRoute check:');
+  console.log('  - Learner ID:', learnerId);
+  console.log('  - User Role:', userRole);
+  console.log('  - Is Valid:', !!(learnerId && userRole === 'learner'));
+  
   // If no learner session, redirect to onboarding assessment
   if (!learnerId || userRole !== 'learner') {
     console.warn('⚠️ No learner session found, redirecting to onboarding');
+    console.warn('⚠️ Current URL:', window.location.href);
     return <Navigate to="/onboarding/assessment" replace />;
   }
   
+  console.log('✅ Learner session valid, rendering protected content');
   return <>{children}</>;
 }

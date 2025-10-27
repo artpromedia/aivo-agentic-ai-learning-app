@@ -41,7 +41,33 @@ export function StudentAssessmentPage() {
   const handleStartAssessment = () => {
     // Store learner ID and redirect to learner app's public onboarding assessment
     localStorage.setItem('current_learner_id', learnerId || '');
-    window.location.href = `http://localhost:3004/#/onboarding/assessment?learner_id=${learnerId}`;
+    
+    // Get teacher's auth token to pass to learner app
+    const teacherToken = localStorage.getItem('access_token');
+    
+    // Store session data for cross-origin access
+    const crossOriginData = {
+      learnerId: learnerId || '',
+      timestamp: Date.now(),
+      token: teacherToken,
+      source: 'teacher_portal'
+    };
+    localStorage.setItem('pending_learner_session', JSON.stringify(crossOriginData));
+    
+    // Redirect with token and return_to parameter for proper flow
+    const learnerAppUrl = `http://localhost:3003/#/onboarding/assessment?learner_id=${learnerId}&token=${teacherToken}&return_to=model_cloning`;
+    
+    console.log('='.repeat(80));
+    console.log('🚀 TEACHER PORTAL: Redirecting to learner app');
+    console.log('='.repeat(80));
+    console.log('📍 Current URL:', window.location.href);
+    console.log('🎯 Target URL:', learnerAppUrl);
+    console.log('👤 Learner ID:', learnerId);
+    console.log('🔑 Token available:', !!teacherToken);
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('='.repeat(80));
+    
+    window.location.href = learnerAppUrl;
   };
 
   if (!showModal) {

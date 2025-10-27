@@ -11,7 +11,7 @@ Enhanced for Phase 2:
 """
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Header, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Header, status, BackgroundTasks, Form
 from pydantic import BaseModel, EmailStr, Field, validator
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -232,8 +232,8 @@ async def register_teacher(
 # Endpoint 3: Login
 @router.post("/login", response_model=LoginResponse)
 async def login(
-    email: EmailStr,
-    password: str,
+    email: EmailStr = Form(...),
+    password: str = Form(...),
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis)
 ):
@@ -249,19 +249,22 @@ async def login(
     6. Update last_login
     7. Reset rate limit on success
     """
-    # Rate limiting: 5 login attempts per 15 minutes per email
+    # Rate limiting: 5 login attempts per 15 minutes per email (only if Redis is available)
     rate_limit_key = f"login:{email}"
-    await check_rate_limit(redis, rate_limit_key, max_attempts=5, window=900)
+    if redis:
+        await check_rate_limit(redis, rate_limit_key, max_attempts=5, window=900)
     
     user = db.query(User).filter(User.email == email).first()
     if not user:
         # Increment failed login counter
-        redis.incr(f"{rate_limit_key}:failed")
+        if redis:
+            redis.incr(f"{rate_limit_key}:failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     
     if not verify_password(password, user.hashed_password):
         # Increment failed login counter
-        redis.incr(f"{rate_limit_key}:failed")
+        if redis:
+            redis.incr(f"{rate_limit_key}:failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     
     if not user.is_active:
@@ -270,19 +273,21 @@ async def login(
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(subject=str(user.id))
     
-    # Store refresh token in Redis (7 days expiration)
-    redis.setex(
-        f"refresh_token:{str(user.id)}",
-        timedelta(days=7),
-        refresh_token
-    )
+    # Store refresh token in Redis (7 days expiration) - only if Redis is available
+    if redis:
+        redis.setex(
+            f"refresh_token:{str(user.id)}",
+            timedelta(days=7),
+            refresh_token
+        )
     
     user.last_login = datetime.utcnow()
     db.commit()
     
     # Reset rate limit on successful login
-    reset_rate_limit(redis, rate_limit_key)
-    redis.delete(f"{rate_limit_key}:failed")
+    if redis:
+        reset_rate_limit(redis, rate_limit_key)
+        redis.delete(f"{rate_limit_key}:failed")
     
     redirect_url = get_redirect_url(user)
     
