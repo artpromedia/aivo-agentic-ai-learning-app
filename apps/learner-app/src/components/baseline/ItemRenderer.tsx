@@ -1,14 +1,18 @@
 /**
- * Adaptive Item Renderer
- * Renders different question types with accessibility features
+ * Enhanced Item Renderer with Neurodiverse Features
+ * Renders different question types with comprehensive accessibility and engagement features
  */
 import { useState, useEffect, useRef } from 'react';
 import type { BaselineItem, ItemResponse } from '../../types/baseline';
-import { CheckCircle2, Circle, Square, CheckSquare, Mic, Volume2, AlertCircle } from 'lucide-react';
+import type { AccessibilityPreferences } from '../../types/accessibility';
+import { CheckCircle2, Circle, Square, CheckSquare, Mic, Volume2, AlertCircle, HelpCircle } from 'lucide-react';
 
 interface ItemRendererProps {
   item: BaselineItem;
   onSubmit: (response: Partial<ItemResponse>) => void;
+  preferences: AccessibilityPreferences;
+  questionNumber: number;
+  totalQuestions: number;
   textToSpeechEnabled?: boolean;
   audioRecordingEnabled?: boolean;
 }
@@ -16,18 +20,25 @@ interface ItemRendererProps {
 export function ItemRenderer({ 
   item, 
   onSubmit,
-  textToSpeechEnabled = false,
+  preferences,
+  questionNumber,
+  totalQuestions,
+  textToSpeechEnabled = true,
   audioRecordingEnabled = false
 }: ItemRendererProps) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [constructedResponse, setConstructedResponse] = useState('');
   const [selfRating, setSelfRating] = useState<'easy' | 'just_right' | 'hard' | null>(null);
+  const [confidenceLevel, setConfidenceLevel] = useState<number>(3);
   const [hesitationCount, setHesitationCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [usedReadAloud, setUsedReadAloud] = useState(false);
   const [usedHint, setUsedHint] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [questionTime, setQuestionTime] = useState(0);
   const startTimeRef = useRef(Date.now());
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   
   useEffect(() => {
