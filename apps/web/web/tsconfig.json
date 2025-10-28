@@ -1,0 +1,6 @@
+{
+  "extends": "@aivo/typescript-config/react.json",
+  "include": ["src"],
+  "exclude": ["**/__tests__/**", "**/*.test.tsx", "**/*.spec.tsx"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

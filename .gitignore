@@ -76,3 +76,25 @@ Desktop.ini
 *.local
 .vite
 .rollup.cache
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+alembic.ini
+*.db
+*.sqlite

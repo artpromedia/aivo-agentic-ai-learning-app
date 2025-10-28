@@ -1,8 +1,55 @@
-import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CreateIEPModal, type IEPFormData } from '../components/CreateIEPModal';
+import { createIEP, createIEPGoal } from '../services/api';
 
 export function IEPManagement() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleCreateIEP = async (iepData: IEPFormData) => {
+    setIsSubmitting(true);
+    try {
+      // Create the IEP document first
+      const iepResponse = await createIEP({
+        learner_id: iepData.learner_id,
+        case_manager: iepData.case_manager,
+        date_created: iepData.date_created,
+        next_review: iepData.next_review,
+        effective_date: iepData.effective_date,
+        parent_contact: iepData.parent_contact,
+        parent_phone: iepData.parent_phone,
+        parent_email: iepData.parent_email,
+        services: iepData.services,
+        notes: iepData.notes,
+      });
+
+      // Then create each goal and associate with the IEP
+      for (const goal of iepData.goals) {
+        await createIEPGoal({
+          learner_id: iepData.learner_id,
+          goal_name: goal.goal_name,
+          goal_description: goal.goal_description,
+          category: goal.category,
+          current_level: goal.current_level,
+          target_level: goal.target_level,
+          start_date: goal.start_date,
+          target_date: goal.target_date,
+          accommodations: goal.accommodations,
+        });
+      }
+
+      alert('IEP created successfully!');
+      // Refresh the page or update the list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error creating IEP:', error);
+      alert('Failed to create IEP. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const ieps = [
     {
@@ -90,7 +137,11 @@ export function IEPManagement() {
           <h1 className="text-3xl font-bold text-neutral-900">IEP Management</h1>
           <p className="text-neutral-600 mt-1">Manage Individualized Education Programs for your students</p>
         </div>
-        <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition-all flex items-center space-x-2">
+        <button 
+          onClick={() => setIsCreateModalOpen(true)}
+          disabled={isSubmitting}
+          className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <span>+</span>
           <span>Create New IEP</span>
         </button>
@@ -283,6 +334,13 @@ export function IEPManagement() {
             ))}
         </div>
       </div>
+
+      {/* Create IEP Modal */}
+      <CreateIEPModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateIEP}
+      />
     </div>
   );
 }

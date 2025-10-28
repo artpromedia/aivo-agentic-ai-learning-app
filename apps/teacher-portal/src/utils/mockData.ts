@@ -141,6 +141,12 @@ const lastNames = [
   'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
 ];
 
+const avatarEmojis = [
+  '👦', '👧', '🧒', '👦🏻', '👧🏻', '👦🏼', '👧🏼', '👦🏽', '👧🏽', '👦🏾',
+  '👧🏾', '👦🏿', '👧🏿', '🧑', '🧑🏻', '🧑🏼', '🧑🏽', '🧑🏾', '🧑🏿', '😊',
+  '🌟', '🎨', '📚', '🎭', '🎵', '⚽', '🎮', '🚀', '🌈', '✨',
+];
+
 const subjects = ['reading', 'math', 'speech', 'social-emotional'] as const;
 
 const activities = [
@@ -194,7 +200,7 @@ export function generateStudents(count: number = 24): StudentData[] {
     return {
       id: `student-${i + 1}`,
       name,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+      avatar: avatarEmojis[i % avatarEmojis.length] || '👦',
       grade: grades[Math.floor(Math.random() * 4)] || 'K',
       iepStatus: ['active', 'in-progress', 'review-due'][
         Math.floor(Math.random() * 3)

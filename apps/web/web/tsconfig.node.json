@@ -1,0 +1,7 @@
+{
+  "extends": "@aivo/typescript-config/base.json",
+  "compilerOptions": {
+    "composite": true
+  },
+  "include": ["vite.config.ts"]
+}

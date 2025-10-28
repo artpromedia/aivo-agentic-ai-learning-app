@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { AskParentHelp } from './AskParentHelp';
 
 interface LearnerProtectedRouteProps {
   children: ReactNode;
@@ -22,11 +22,11 @@ export function LearnerProtectedRoute({ children }: LearnerProtectedRouteProps) 
   console.log('  - User Role:', userRole);
   console.log('  - Is Valid:', !!(learnerId && userRole === 'learner'));
   
-  // If no learner session, redirect to onboarding assessment
+  // If no learner session, show beautiful "Ask Parent for Help" UI
   if (!learnerId || userRole !== 'learner') {
-    console.warn('⚠️ No learner session found, redirecting to onboarding');
+    console.warn('⚠️ No learner session found, showing Ask Parent Help UI');
     console.warn('⚠️ Current URL:', window.location.href);
-    return <Navigate to="/onboarding/assessment" replace />;
+    return <AskParentHelp />;
   }
   
   console.log('✅ Learner session valid, rendering protected content');
