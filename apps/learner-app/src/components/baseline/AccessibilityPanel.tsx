@@ -2,8 +2,7 @@
  * Accessibility Control Panel
  * Allows learners to customize their assessment experience
  */
-import { useState } from 'react';
-import { Settings, Volume2, VolumeX, Type, Eye, Palette, Timer, Heart } from 'lucide-react';
+import { Eye, Heart, Palette, Settings, Timer, Type, Volume2, VolumeX } from 'lucide-react';
 import type { AccessibilityPreferences } from '../../types/accessibility';
 
 interface AccessibilityPanelProps {

@@ -1,283 +1,236 @@
 /**
- * Domain Transition Component
- * Displays break screen between assessment domains
+ * Enhanced Domain Transition with Breathing Exercise
+ * Age-appropriate transitions with mindfulness
  */
-import { useState, useEffect } from 'react';
-import { 
-  BookOpen, 
-  Calculator, 
-  Microscope, 
-  PenTool, 
-  Heart,
-  Mic,
-  CheckCircle2,
-  ArrowRight,
-  Coffee,
-  Trophy
+import {
+    ArrowRight,
+    BookOpen,
+    Calculator,
+    Heart,
+    Mic,
+    Microscope,
+    PenTool,
+    Wind
 } from 'lucide-react';
-import type { Domain } from '../../types/baseline';
+import { useEffect, useState } from 'react';
+import type { AccessibilityPreferences } from '../../types/accessibility';
+import type { Domain, GradeBand } from '../../types/baseline';
 
 interface DomainTransitionProps {
-  completedDomain: Domain;
-  nextDomain: Domain;
-  completedDomainScore?: number; // 0-100
-  questionsCompleted: number;
-  totalQuestionsInDomain: number;
-  onContinue: () => void;
-  allowSkip?: boolean;
+  domain: Domain;
+  gradeBand: GradeBand;
+  preferences: AccessibilityPreferences;
+  onComplete: () => void;
 }
 
-// Domain metadata
 const DOMAIN_INFO: Record<Domain, {
   icon: typeof BookOpen;
   label: string;
   color: string;
-  bgColor: string;
   encouragement: string;
 }> = {
   reading: {
     icon: BookOpen,
     label: 'Reading',
     color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    encouragement: 'Great reading comprehension!'
+    encouragement: 'Time to explore stories and ideas!'
   },
   math: {
     icon: Calculator,
     label: 'Math',
     color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    encouragement: 'Excellent problem solving!'
+    encouragement: 'Let\'s solve some cool problems!'
   },
   science: {
     icon: Microscope,
     label: 'Science',
     color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    encouragement: 'Outstanding scientific thinking!'
+    encouragement: 'Ready to discover how things work?'
   },
   writing: {
     icon: PenTool,
     label: 'Writing',
     color: 'text-orange-600',
-    bgColor: 'bg-orange-50',
-    encouragement: 'Wonderful expression!'
+    encouragement: 'Time to share your ideas!'
   },
   sel: {
     icon: Heart,
-    label: 'Social & Emotional',
+    label: 'Social-Emotional',
     color: 'text-pink-600',
-    bgColor: 'bg-pink-50',
-    encouragement: 'Great self-awareness!'
+    encouragement: 'Let\'s talk about feelings and friendships!'
   },
   speech: {
     icon: Mic,
-    label: 'Speech Therapy',
+    label: 'Speech & Language',
     color: 'text-indigo-600',
-    bgColor: 'bg-indigo-50',
-    encouragement: 'Wonderful communication skills!'
+    encouragement: 'Time to practice communication!'
   }
 };
 
+const AGE_APPROPRIATE_MESSAGES: Record<GradeBand, {
+  title: string;
+  breathingInstruction: string;
+  readyPhrase: string;
+}> = {
+  'K-5': {
+    title: 'Let\'s Take a Breath Together!',
+    breathingInstruction: 'Follow the circle: Breathe in... Hold... Breathe out...',
+    readyPhrase: 'I\'m ready to try my best!'
+  },
+  '6-8': {
+    title: 'Quick Mindfulness Break',
+    breathingInstruction: 'Take a moment to center yourself with deep breathing.',
+    readyPhrase: 'Let\'s do this!'
+  },
+  '9-12': {
+    title: 'Transition Break',
+    breathingInstruction: 'Use this breathing exercise to reset and refocus.',
+    readyPhrase: 'Ready to continue'
+  }
+};
+
+type BreathPhase = 'in' | 'hold' | 'out';
+
 export function DomainTransition({
-  completedDomain,
-  nextDomain,
-  completedDomainScore,
-  questionsCompleted,
-  totalQuestionsInDomain,
-  onContinue,
-  allowSkip = false
+  domain,
+  gradeBand,
+  preferences,
+  onComplete
 }: DomainTransitionProps) {
-  const [countdown, setCountdown] = useState(30); // 30 second break
-  const [isReady, setIsReady] = useState(false);
-  
-  const completedInfo = DOMAIN_INFO[completedDomain];
-  const nextInfo = DOMAIN_INFO[nextDomain];
-  const CompletedIcon = completedInfo.icon;
-  const NextIcon = nextInfo.icon;
-  
-  // Auto-continue after countdown (unless they mark ready earlier)
+  const [breathPhase, setBreathPhase] = useState<BreathPhase>('in');
+  const [showBreathing, setShowBreathing] = useState(true);
+  const [countdown, setCountdown] = useState(4);
+
+  const info = DOMAIN_INFO[domain];
+  const Icon = info.icon;
+  const messages = AGE_APPROPRIATE_MESSAGES[gradeBand];
+
+  // Breathing animation cycle: in (4s) → hold (4s) → out (4s)
   useEffect(() => {
-    if (isReady) {
-      onContinue();
-      return;
-    }
-    
-    if (countdown <= 0) {
-      onContinue();
-      return;
-    }
-    
+    if (!showBreathing) return;
+
     const timer = setInterval(() => {
-      setCountdown(prev => prev - 1);
+      setCountdown(prev => {
+        if (prev > 1) return prev - 1;
+        
+        // Reset countdown and move to next phase
+        setBreathPhase(current => {
+          if (current === 'in') return 'hold';
+          if (current === 'hold') return 'out';
+          return 'in';
+        });
+        return 4;
+      });
     }, 1000);
-    
+
     return () => clearInterval(timer);
-  }, [countdown, isReady, onContinue]);
-  
-  // Get performance feedback
-  const getPerformanceFeedback = () => {
-    if (!completedDomainScore) return null;
-    
-    if (completedDomainScore >= 80) {
-      return {
-        message: 'Amazing work! You really know your stuff!',
-        color: 'text-green-600',
-        bgColor: 'bg-green-50',
-        icon: Trophy
-      };
-    } else if (completedDomainScore >= 60) {
-      return {
-        message: 'Nice job! You\'re doing great!',
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-50',
-        icon: CheckCircle2
-      };
-    } else {
-      return {
-        message: 'Good effort! Keep trying your best!',
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-50',
-        icon: Heart
-      };
-    }
+  }, [showBreathing]);
+
+  const phaseLabels = {
+    in: 'Breathe In',
+    hold: 'Hold',
+    out: 'Breathe Out'
   };
-  
-  const feedback = getPerformanceFeedback();
-  const FeedbackIcon = feedback?.icon;
-  
+
+  const phaseColors = {
+    in: 'from-blue-400 to-blue-600',
+    hold: 'from-purple-400 to-purple-600',
+    out: 'from-green-400 to-green-600'
+  };
+
+  // Font size class
+  const fontSizeClass = {
+    small: 'text-sm',
+    medium: 'text-base',
+    large: 'text-lg',
+    xlarge: 'text-xl'
+  }[preferences.fontSize];
+
+  // Scale animation for breathing
+  const scaleClass = breathPhase === 'in' ? 'scale-150' : breathPhase === 'hold' ? 'scale-150' : 'scale-100';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
-        {/* Completed Domain Card */}
-        <div className={`${completedInfo.bgColor} rounded-2xl shadow-lg p-8 mb-6 transform transition-all hover:scale-105`}>
-          <div className="flex items-center gap-4 mb-4">
-            <div className={`p-4 ${completedInfo.bgColor} rounded-full`}>
-              <CompletedIcon className={`w-8 h-8 ${completedInfo.color}`} />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <span className="text-sm font-medium text-green-600">Completed</span>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {completedInfo.label}
-              </h2>
-            </div>
-          </div>
-          
-          <p className={`text-lg ${completedInfo.color} font-medium mb-4`}>
-            {completedInfo.encouragement}
-          </p>
-          
-          <div className="flex items-center justify-between text-sm text-gray-700">
-            <span>{questionsCompleted} questions completed</span>
-            {completedDomainScore !== undefined && (
-              <span className="font-semibold">{Math.round(completedDomainScore)}% accuracy</span>
-            )}
-          </div>
-        </div>
-        
-        {/* Performance Feedback */}
-        {feedback && FeedbackIcon && (
-          <div className={`${feedback.bgColor} rounded-2xl shadow-lg p-6 mb-6`}>
-            <div className="flex items-center gap-3">
-              <FeedbackIcon className={`w-6 h-6 ${feedback.color}`} />
-              <p className={`text-lg font-semibold ${feedback.color}`}>
-                {feedback.message}
-              </p>
-            </div>
-          </div>
-        )}
-        
-        {/* Break Timer */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
-          <div className="text-center mb-6">
-            <Coffee className="w-12 h-12 text-amber-600 mx-auto mb-3" />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Take a quick break!
-            </h3>
-            <p className="text-gray-600">
-              Stretch, grab some water, and get ready for the next section.
-            </p>
-          </div>
-          
-          <div className="flex items-center justify-center mb-6">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full border-8 border-gray-200 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-gray-900">
-                    {countdown}
-                  </div>
-                  <div className="text-sm text-gray-600">seconds</div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
+        {showBreathing ? (
+          /* Breathing Exercise */
+          <div className="text-center space-y-6">
+            <h2 className={`font-bold ${fontSizeClass} mb-4`}>
+              {messages.title}
+            </h2>
+
+            {/* Breathing Circle */}
+            <div className="flex justify-center items-center h-64">
+              <div
+                className={`
+                  w-40 h-40 rounded-full 
+                  bg-gradient-to-br ${phaseColors[breathPhase]}
+                  flex items-center justify-center
+                  transition-transform duration-4000 ease-in-out
+                  ${scaleClass}
+                  ${!preferences.reduceAnimations ? 'animate-pulse' : ''}
+                `}
+              >
+                <div className="text-white text-center">
+                  <Wind className="w-12 h-12 mx-auto mb-2" />
+                  <p className="font-bold text-lg">{phaseLabels[breathPhase]}</p>
+                  <p className="text-3xl font-bold">{countdown}</p>
                 </div>
               </div>
-              {/* Animated progress ring */}
-              <svg className="absolute top-0 left-0 w-32 h-32 transform -rotate-90">
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="56"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  strokeDasharray={`${(countdown / 30) * 352} 352`}
-                  className="text-blue-500 transition-all duration-1000"
-                />
-              </svg>
             </div>
-          </div>
-          
-          <button
-            onClick={() => {
-              console.log('🎯 DomainTransition: User clicked "I\'m Ready! Let\'s Continue"');
-              console.log('📍 Current URL:', window.location.href);
-              console.log('💾 localStorage check:', {
-                learnerId: localStorage.getItem('current_learner_id'),
-                userRole: localStorage.getItem('user_role'),
-                onboardingFlow: localStorage.getItem('onboarding_flow')
-              });
-              setIsReady(true);
-            }}
-            className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-          >
-            I'm Ready! Let's Continue
-          </button>
-          
-          {allowSkip && (
+
+            <p className={`text-gray-600 ${fontSizeClass}`}>
+              {messages.breathingInstruction}
+            </p>
+
+            {/* Skip Button */}
             <button
-              onClick={() => {
-                console.log('⏩ DomainTransition: User clicked "Skip break and continue"');
-                console.log('📍 Current URL:', window.location.href);
-                console.log('💾 localStorage check:', {
-                  learnerId: localStorage.getItem('current_learner_id'),
-                  userRole: localStorage.getItem('user_role'),
-                  onboardingFlow: localStorage.getItem('onboarding_flow')
-                });
-                onContinue();
-              }}
-              className="w-full mt-3 py-3 text-gray-600 hover:text-gray-900 transition-colors text-sm"
+              onClick={() => setShowBreathing(false)}
+              className="px-6 py-2 text-gray-600 hover:text-gray-800 underline"
             >
-              Skip break and continue
+              Skip to next section
             </button>
-          )}
-        </div>
-        
-        {/* Next Domain Preview */}
-        <div className={`${nextInfo.bgColor} rounded-2xl shadow-lg p-8`}>
-          <div className="flex items-center gap-4">
-            <div className={`p-4 bg-white rounded-full`}>
-              <NextIcon className={`w-8 h-8 ${nextInfo.color}`} />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm text-gray-600 mb-1">Up Next</div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {nextInfo.label}
-              </h2>
-            </div>
-            <ArrowRight className="w-6 h-6 text-gray-400" />
           </div>
-        </div>
+        ) : (
+          /* Domain Introduction */
+          <div className="text-center space-y-6">
+            <div className="flex justify-center">
+              <div className={`p-4 rounded-full ${info.color} bg-opacity-10`}>
+                <Icon className={`w-16 h-16 ${info.color}`} />
+              </div>
+            </div>
+
+            <div>
+              <h2 className={`font-bold ${fontSizeClass} mb-2`}>
+                Up Next: {info.label}
+              </h2>
+              <p className={`text-gray-600 ${fontSizeClass}`}>
+                {info.encouragement}
+              </p>
+            </div>
+
+            <div className={`p-4 bg-blue-50 rounded-lg ${fontSizeClass}`}>
+              <p className="font-semibold text-blue-900">
+                {messages.readyPhrase}
+              </p>
+            </div>
+
+            <button
+              onClick={onComplete}
+              className={`
+                w-full py-3 px-6 
+                bg-gradient-to-r ${phaseColors.in}
+                text-white font-bold rounded-lg
+                hover:shadow-lg transition-all
+                flex items-center justify-center gap-2
+                ${fontSizeClass}
+              `}
+            >
+              Start {info.label}
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

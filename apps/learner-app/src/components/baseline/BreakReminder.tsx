@@ -2,8 +2,8 @@
  * Break Reminder Component
  * Suggests breaks and mindfulness exercises
  */
-import { useState, useEffect } from 'react';
 import { Coffee, Heart, Smile, Wind } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface BreakReminderProps {
   questionsCompleted: number;

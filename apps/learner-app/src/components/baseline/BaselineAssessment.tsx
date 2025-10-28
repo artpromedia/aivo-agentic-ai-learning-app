@@ -1,37 +1,53 @@
 /**
- * Baseline Assessment Container
- * Main component that orchestrates the adaptive assessment
+ * Enhanced Baseline Assessment Container
+ * Main component with accessibility support and 5 questions per domain
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { 
-  BaselineSession, 
-  BaselineItem, 
-  ItemResponse,
-  Domain,
-  GradeBand 
-} from '../../types/baseline';
-import { ItemRenderer } from './ItemRenderer';
-import { AdaptiveProgress } from './AdaptiveProgress';
-import { EngagementTracker } from './EngagementTracker';
-import { DomainTransition } from './DomainTransition';
+import { Settings } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { selectNextItem } from '../../services/baseline/adaptiveSelection';
 import { estimateAbilityMLE } from '../../services/baseline/irtScoring';
-import { selectNextItem, shouldStopTesting } from '../../services/baseline/adaptiveSelection';
+import type { AccessibilityPreferences, EngagementMetrics } from '../../types/accessibility';
+import { DEFAULT_ACCESSIBILITY_PREFS } from '../../types/accessibility';
+import type {
+    BaselineItem,
+    BaselineSession,
+    Domain,
+    GradeBand,
+    ItemResponse
+} from '../../types/baseline';
+import { AccessibilityPanel } from './AccessibilityPanel';
+import { AdaptiveProgress } from './AdaptiveProgress';
+import { BreakReminder } from './BreakReminder';
+import { DomainTransition } from './DomainTransition';
+import { ItemRenderer } from './ItemRenderer';
 
 interface BaselineAssessmentProps {
   learnerId: string;
   gradeBand: GradeBand;
   onComplete: (results: BaselineSession) => void;
-  textToSpeechEnabled?: boolean;
-  audioRecordingEnabled?: boolean;
 }
+
+const DOMAINS: Domain[] = ['reading', 'math', 'science', 'writing', 'sel', 'speech'];
+const ITEMS_PER_DOMAIN = 5;
+const TOTAL_ITEMS = DOMAINS.length * ITEMS_PER_DOMAIN; // 30 items
 
 export function BaselineAssessment({
   learnerId,
   gradeBand,
-  onComplete,
-  textToSpeechEnabled = true,
-  audioRecordingEnabled = true
+  onComplete
 }: BaselineAssessmentProps) {
+  // Load preferences from localStorage
+  const [accessibilityPrefs, setAccessibilityPrefs] = useState<AccessibilityPreferences>(() => {
+    const saved = localStorage.getItem('aivo_accessibility_prefs');
+    return saved ? JSON.parse(saved) : DEFAULT_ACCESSIBILITY_PREFS;
+  });
+
+  // Save preferences to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('aivo_accessibility_prefs', JSON.stringify(accessibilityPrefs));
+  }, [accessibilityPrefs]);
+
+  // Assessment state
   const [session, setSession] = useState<BaselineSession>({
     id: crypto.randomUUID(),
     learnerId,
@@ -41,30 +57,40 @@ export function BaselineAssessment({
     domainsCompleted: [],
     status: 'in_progress',
     itemsAnswered: 0,
-    totalItems: 0,
+    totalItems: TOTAL_ITEMS,
     currentAbilityEstimates: {},
     standardErrors: {},
     responses: [],
     totalTimeMs: 0,
-    audioRecordingEnabled,
-    textToSpeechEnabled
+    audioRecordingEnabled: false, // Will be enabled if needed
+    textToSpeechEnabled: accessibilityPrefs.textToSpeech
   });
   
+  const [currentDomain, setCurrentDomain] = useState<Domain>('reading');
+  const [itemsAnsweredPerDomain, setItemsAnsweredPerDomain] = useState<Record<Domain, number>>(
+    Object.fromEntries(DOMAINS.map(d => [d, 0])) as Record<Domain, number>
+  );
   const [currentItem, setCurrentItem] = useState<BaselineItem | null>(null);
   const [availableItems, setAvailableItems] = useState<BaselineItem[]>([]);
   const [showTransition, setShowTransition] = useState(false);
-  const [engagementMetrics, setEngagementMetrics] = useState({
-    focusLevel: 'high' as 'high' | 'medium' | 'low',
+  const [showBreak, setShowBreak] = useState(false);
+  const [showAccessibilityPanel, setShowAccessibilityPanel] = useState(false);
+
+  // Engagement tracking
+  const [engagementMetrics, setEngagementMetrics] = useState<EngagementMetrics>({
+    focusLevel: 'high',
     hesitationIndicators: 0,
     avgResponseTime: 0,
     consecutiveQuickResponses: 0,
     consecutiveSlowResponses: 0,
     skippedItems: 0,
-    hintsUsed: 0
+    hintsUsed: 0,
+    breaksRequested: 0,
+    confidenceRatings: []
   });
-  const [currentQuestionTime, setCurrentQuestionTime] = useState(0);
-  
+
   const questionStartTimeRef = useRef(Date.now());
+  const sessionStartTimeRef = useRef(Date.now());
   
   // Load items for current domain (mock data - will be replaced with API call)
   useEffect(() => {
@@ -223,34 +249,31 @@ export function BaselineAssessment({
   useEffect(() => {
     if (availableItems.length === 0 || currentItem !== null) return;
     
-    const domainItems = availableItems.filter(item => item.domain === session.currentDomain);
+    const domainItems = availableItems.filter(item => item.domain === currentDomain);
     
     if (domainItems.length === 0) {
-      // No more items for this domain, move to next
-      handleDomainComplete();
+      // No more items for this domain - shouldn't happen with our fixed 5 questions per domain
+      console.warn('No items available for domain:', currentDomain);
+      return;
+    }
+    
+    // Check if we've reached the limit for this domain (5 questions)
+    if (itemsAnsweredPerDomain[currentDomain] >= ITEMS_PER_DOMAIN) {
+      // Domain complete, should have triggered transition already
+      console.log('Domain complete, waiting for transition');
       return;
     }
     
     // Get current ability estimate for domain
-    const currentTheta = session.currentAbilityEstimates[session.currentDomain] ?? 0;
-    const currentSE = session.standardErrors[session.currentDomain] ?? 1;
+    const currentTheta = session.currentAbilityEstimates[currentDomain] ?? 0;
+    const currentSE = session.standardErrors[currentDomain] ?? 1;
     
-    // Check if we should stop testing this domain
-    const domainResponses = session.responses.filter(r => r.domain === session.currentDomain);
-    
-    // Only stop if we have at least answered one question per domain
-    if (domainResponses.length > 0 && shouldStopTesting(domainResponses, currentSE, {
-      minItems: 1, // Reduced for mock data (only 1 question per domain)
-      maxItems: 5,
-      targetSE: 0.3
-    })) {
-      handleDomainComplete();
-      return;
-    }
+    // Get responses for this domain
+    const domainResponses = session.responses.filter(r => r.domain === currentDomain);
     
     // Select next item using adaptive algorithm
     const nextItem = selectNextItem({
-      domain: session.currentDomain,
+      domain: currentDomain,
       currentTheta: currentTheta,
       standardError: currentSE,
       responsesInDomain: domainResponses,
@@ -263,20 +286,8 @@ export function BaselineAssessment({
     if (nextItem) {
       setCurrentItem(nextItem);
       questionStartTimeRef.current = Date.now();
-      setCurrentQuestionTime(0);
-    } else {
-      handleDomainComplete();
     }
-  }, [availableItems, currentItem, session.currentDomain, session.currentAbilityEstimates, session.standardErrors, session.responses]); // eslint-disable-line react-hooks/exhaustive-deps
-  
-  // Track time on current question
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentQuestionTime(Math.floor((Date.now() - questionStartTimeRef.current) / 1000));
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, [currentItem]);
+  }, [availableItems, currentItem, currentDomain, itemsAnsweredPerDomain, session.currentAbilityEstimates, session.standardErrors, session.responses]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Monitor focus (page visibility)
   useEffect(() => {
@@ -312,7 +323,6 @@ export function BaselineAssessment({
       const incorrectCount = (response.selectedOptions?.length ?? 0) - correctCount;
       score = Math.max(0, (correctCount - incorrectCount) / currentItem.options.length);
     }
-    // TODO: Handle other item types (constructed response, read aloud, etc.)
     
     // Create complete response object
     const completeResponse: ItemResponse = {
@@ -323,15 +333,22 @@ export function BaselineAssessment({
     // Update session with new response
     const updatedResponses = [...session.responses, completeResponse];
     
+    // Update items answered for current domain
+    const newItemsAnswered = itemsAnsweredPerDomain[currentDomain] + 1;
+    setItemsAnsweredPerDomain(prev => ({
+      ...prev,
+      [currentDomain]: newItemsAnswered
+    }));
+    
     // Re-estimate ability for this domain
-    const domainResponses = updatedResponses.filter(r => r.domain === session.currentDomain);
+    const domainResponses = updatedResponses.filter(r => r.domain === currentDomain);
     const items = domainResponses.map(r => 
       availableItems.find(item => item.id === r.itemId)!
     );
     
     // Convert to format expected by estimateAbilityMLE
     const irtResponses = domainResponses.map((r, i) => ({
-      correct: r.score > 0.5,  // Convert score to boolean
+      correct: r.score > 0.5,
       item: {
         a: items[i].parameters.discrimination,
         b: items[i].parameters.difficulty,
@@ -345,13 +362,14 @@ export function BaselineAssessment({
     setSession(prev => ({
       ...prev,
       responses: updatedResponses,
+      itemsAnswered: prev.itemsAnswered + 1,
       currentAbilityEstimates: {
         ...prev.currentAbilityEstimates,
-        [session.currentDomain]: theta
+        [currentDomain]: theta
       },
       standardErrors: {
         ...prev.standardErrors,
-        [session.currentDomain]: standardError
+        [currentDomain]: standardError
       }
     }));
     
@@ -359,6 +377,9 @@ export function BaselineAssessment({
     const responseTime = (response.timeSubmitted!.getTime() - response.timeStarted!.getTime()) / 1000;
     setEngagementMetrics(prev => {
       const newAvgTime = (prev.avgResponseTime * prev.hesitationIndicators + responseTime) / (prev.hesitationIndicators + 1);
+      // Note: confidenceRatings would come from separate confidence slider feature
+      const newConfidenceRatings = prev.confidenceRatings;
+      
       return {
         ...prev,
         avgResponseTime: newAvgTime,
@@ -366,101 +387,51 @@ export function BaselineAssessment({
         consecutiveQuickResponses: responseTime < 5 ? prev.consecutiveQuickResponses + 1 : 0,
         consecutiveSlowResponses: responseTime > 60 ? prev.consecutiveSlowResponses + 1 : 0,
         skippedItems: prev.skippedItems + (response.skipped ? 1 : 0),
-        hintsUsed: prev.hintsUsed + (response.usedHint ? 1 : 0)
+        hintsUsed: prev.hintsUsed + (response.usedHint ? 1 : 0),
+        confidenceRatings: newConfidenceRatings
       };
     });
+    
+    // Check if domain is complete (5 questions answered)
+    if (newItemsAnswered >= ITEMS_PER_DOMAIN) {
+      // Mark domain as complete and transition to next
+      const completedDomains = [...session.domainsCompleted, currentDomain];
+      const nextDomainIndex = DOMAINS.findIndex(d => d === currentDomain) + 1;
+      
+      if (nextDomainIndex < DOMAINS.length) {
+        // Move to next domain
+        const nextDomain = DOMAINS[nextDomainIndex];
+        setCurrentDomain(nextDomain);
+        setSession(prev => ({
+          ...prev,
+          domainsCompleted: completedDomains,
+          currentDomain: nextDomain
+        }));
+        setShowTransition(true);
+      } else {
+        // Assessment complete!
+        const finalSession: BaselineSession = {
+          ...session,
+          domainsCompleted: completedDomains,
+          status: 'completed',
+          completedAt: new Date(),
+          totalTimeMs: Date.now() - sessionStartTimeRef.current
+        };
+        onComplete(finalSession);
+      }
+    } else {
+      // Check if break is needed (every 10 questions if enabled)
+      if (accessibilityPrefs.breakReminders && session.itemsAnswered % 10 === 0 && session.itemsAnswered > 0) {
+        setShowBreak(true);
+      }
+    }
     
     // Clear current item to trigger next item selection
     setCurrentItem(null);
   };
-  
-  // Handle domain completion
-  const handleDomainComplete = useCallback(() => {
-    setSession(prev => {
-      const completedDomain = prev.currentDomain;
-      const domainsCompleted = [...prev.domainsCompleted, completedDomain];
-      
-      // Determine next domain
-      const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
-      const remainingDomains = allDomains.filter(d => !domainsCompleted.includes(d));
-      
-      if (remainingDomains.length === 0) {
-        // Assessment complete!
-        const finalSession: BaselineSession = {
-          ...prev,
-          domainsCompleted,
-          status: 'completed',
-          completedAt: new Date()
-        };
-        onComplete(finalSession);
-        return prev; // Don't update state, we're done
-      }
-      
-      // Show transition screen
-      setShowTransition(true);
-      return {
-        ...prev,
-        domainsCompleted
-      };
-    });
-  }, [onComplete]);
-  
-  // Handle transition continue
-  const handleTransitionContinue = () => {
-    console.log('🔄 BaselineAssessment: handleTransitionContinue called');
-    console.log('📊 Current session state:', {
-      currentDomain: session.currentDomain,
-      domainsCompleted: session.domainsCompleted,
-      totalResponses: session.responses.length
-    });
-    
-    const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
-    const nextDomain = allDomains.find(d => !session.domainsCompleted.includes(d));
-    
-    console.log('➡️ Next domain determined:', nextDomain);
-    
-    if (nextDomain) {
-      setSession(prev => ({
-        ...prev,
-        currentDomain: nextDomain
-      }));
-      setShowTransition(false);
-      setCurrentItem(null); // Trigger next item selection
-      console.log('✅ Updated session to continue with domain:', nextDomain);
-    } else {
-      console.log('⚠️ No next domain found - assessment should be complete');
-    }
-  };
-  
-  // Show transition screen
-  if (showTransition && session.domainsCompleted.length > 0) {
-    const lastCompletedDomain = session.domainsCompleted[session.domainsCompleted.length - 1];
-    const allDomains: Domain[] = ['reading', 'math', 'science', 'writing', 'sel'];
-    const nextDomain = allDomains.find(d => !session.domainsCompleted.includes(d));
-    
-    if (!nextDomain) return null; // Should not happen
-    
-    // Calculate accuracy for completed domain
-    const domainResponses = session.responses.filter(r => r.domain === lastCompletedDomain);
-    const accuracy = domainResponses.length > 0
-      ? (domainResponses.reduce((sum, r) => sum + r.score, 0) / domainResponses.length) * 100
-      : 0;
-    
-    return (
-      <DomainTransition
-        completedDomain={lastCompletedDomain}
-        nextDomain={nextDomain}
-        completedDomainScore={accuracy}
-        questionsCompleted={domainResponses.length}
-        totalQuestionsInDomain={domainResponses.length}
-        onContinue={handleTransitionContinue}
-        allowSkip={true}
-      />
-    );
-  }
-  
+
   // Show loading if no item selected yet
-  if (!currentItem) {
+  if (!currentItem && !showTransition && !showBreak) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -475,27 +446,68 @@ export function BaselineAssessment({
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Accessibility Settings Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowAccessibilityPanel(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <Settings className="w-4 h-4" />
+            Accessibility
+          </button>
+        </div>
+
         {/* Progress */}
         <AdaptiveProgress
-          session={session}
-          currentDomain={session.currentDomain}
-          showDetailedMetrics={false}
+          domains={DOMAINS}
+          itemsAnsweredPerDomain={itemsAnsweredPerDomain}
+          itemsPerDomain={ITEMS_PER_DOMAIN}
+          preferences={accessibilityPrefs}
         />
-        
-        {/* Engagement Tracker */}
-        <EngagementTracker
-          metrics={engagementMetrics}
-          currentQuestionTime={currentQuestionTime}
-          showDetailedMetrics={false}
-        />
+
+        {/* Break Reminder */}
+        {showBreak && (
+          <BreakReminder
+            questionsCompleted={session.itemsAnswered}
+            onContinue={() => {
+              setShowBreak(false);
+              setEngagementMetrics(prev => ({ ...prev, breaksRequested: prev.breaksRequested + 1 }));
+            }}
+            onTakeBreak={() => setShowBreak(false)}
+            gradeBand={gradeBand}
+          />
+        )}
+
+        {/* Domain Transition */}
+        {showTransition && currentDomain && (
+          <DomainTransition
+            domain={currentDomain}
+            gradeBand={gradeBand}
+            preferences={accessibilityPrefs}
+            onComplete={() => setShowTransition(false)}
+          />
+        )}
         
         {/* Item Renderer */}
-        <ItemRenderer
-          item={currentItem}
-          onSubmit={handleItemSubmit}
-          textToSpeechEnabled={textToSpeechEnabled}
-          audioRecordingEnabled={audioRecordingEnabled}
-        />
+        {currentItem && !showTransition && !showBreak && (
+          <ItemRenderer
+            item={currentItem}
+            onSubmit={handleItemSubmit}
+            preferences={accessibilityPrefs}
+            questionNumber={session.itemsAnswered + 1}
+            totalQuestions={TOTAL_ITEMS}
+          />
+        )}
+
+        {/* Accessibility Panel */}
+        {showAccessibilityPanel && (
+          <AccessibilityPanel
+            preferences={accessibilityPrefs}
+            onPreferencesChange={setAccessibilityPrefs}
+            isOpen={showAccessibilityPanel}
+            onToggle={() => setShowAccessibilityPanel(false)}
+          />
+        )}
       </div>
     </div>
   );

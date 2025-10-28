@@ -2,10 +2,10 @@
  * Enhanced Item Renderer with Neurodiverse Features
  * Renders different question types with comprehensive accessibility and engagement features
  */
-import { useState, useEffect, useRef } from 'react';
-import type { BaselineItem, ItemResponse } from '../../types/baseline';
+import { AlertCircle, CheckCircle2, CheckSquare, Circle, Mic, Square, Volume2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { AccessibilityPreferences } from '../../types/accessibility';
-import { CheckCircle2, Circle, Square, CheckSquare, Mic, Volume2, AlertCircle, HelpCircle } from 'lucide-react';
+import type { BaselineItem, ItemResponse } from '../../types/baseline';
 
 interface ItemRendererProps {
   item: BaselineItem;

@@ -2,13 +2,13 @@
  * Comprehensive Neurodiverse Assessment Container
  * Manages the full baseline assessment experience with all accessibility features
  */
-import { useState, useEffect } from 'react';
-import { ItemRenderer } from './ItemRenderer';
-import { AccessibilityPanel } from './AccessibilityPanel';
-import { BreakReminder } from './BreakReminder';
-import type { BaselineItem, ItemResponse } from '../../types/baseline';
+import { useEffect, useState } from 'react';
 import type { AccessibilityPreferences } from '../../types/accessibility';
 import { DEFAULT_ACCESSIBILITY_PREFS } from '../../types/accessibility';
+import type { BaselineItem, ItemResponse } from '../../types/baseline';
+import { AccessibilityPanel } from './AccessibilityPanel';
+import { BreakReminder } from './BreakReminder';
+import { ItemRenderer } from './ItemRenderer';
 
 interface AssessmentContainerProps {
   items: BaselineItem[];
