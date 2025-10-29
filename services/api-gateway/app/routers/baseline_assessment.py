@@ -2,32 +2,35 @@
 Baseline Assessment API Router - Enhanced for Neurodiverse Support
 Endpoints for adaptive baseline assessment with accessibility features
 """
+
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.services.baseline_assessment_service import BaselineAssessmentService
 
-router = APIRouter(prefix="/api/v1/baseline", tags=["baseline-assessment"])
+router = APIRouter(prefix="/baseline", tags=["baseline-assessment"])
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # REQUEST/RESPONSE MODELS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class AccessibilityPreferences(BaseModel):
     """Learner accessibility preferences"""
-    fontSize: str = 'medium'
-    fontFamily: str = 'default'
+
+    fontSize: str = "medium"
+    fontFamily: str = "default"
     highContrast: bool = False
-    colorScheme: str = 'calm-blue'
+    colorScheme: str = "calm-blue"
     reduceAnimations: bool = False
     textToSpeech: bool = False
-    ttsVoice: str = 'female'
+    ttsVoice: str = "female"
     ttsSpeed: float = 1.0
     soundEffects: bool = True
     showTimer: bool = False
@@ -52,6 +55,7 @@ class StartSessionRequest(BaseModel):
 
 class ItemWithAccessibility(BaseModel):
     """Enhanced item response with accessibility metadata"""
+
     id: str
     domain: str
     subDomain: str
@@ -84,6 +88,7 @@ class StartSessionResponse(BaseModel):
 
 class EngagementMetrics(BaseModel):
     """Enhanced engagement tracking"""
+
     hesitationCount: int = 0
     usedHint: bool = False
     usedReadAloud: bool = False
@@ -156,15 +161,13 @@ class SessionStatusResponse(BaseModel):
 # ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @router.post("/start-session", response_model=StartSessionResponse)
-async def start_session(
-    request: StartSessionRequest,
-    db: Session = Depends(get_db)
-):
+async def start_session(request: StartSessionRequest, db: Session = Depends(get_db)):
     """
     Start a new baseline assessment session or resume existing
     with accessibility preferences
-    
+
     Returns first item, initial ability estimates, and UI configuration
     """
     try:
@@ -173,26 +176,32 @@ async def start_session(
             BaselineAssessmentService.save_accessibility_preferences(
                 db=db,
                 learner_id=request.learner_id,
-                preferences=request.accessibility_preferences.dict()
+                preferences=request.accessibility_preferences.dict(),
             )
-        
+
         result = BaselineAssessmentService.start_session(
             db=db,
             learner_id=request.learner_id,
             grade_band=request.grade_band,
             audio_enabled=(
-                request.audio_enabled or
-                (request.accessibility_preferences.textToSpeech
-                 if request.accessibility_preferences else False)
+                request.audio_enabled
+                or (
+                    request.accessibility_preferences.textToSpeech
+                    if request.accessibility_preferences
+                    else False
+                )
             ),
             tts_enabled=(
-                request.tts_enabled or
-                (request.accessibility_preferences.textToSpeech
-                 if request.accessibility_preferences else False)
+                request.tts_enabled
+                or (
+                    request.accessibility_preferences.textToSpeech
+                    if request.accessibility_preferences
+                    else False
+                )
             ),
-            device_info=request.device_info
+            device_info=request.device_info,
         )
-        
+
         # Generate UI configuration
         prefs = request.accessibility_preferences
         ui_config = {
@@ -200,9 +209,9 @@ async def start_session(
             "fontSize": prefs.fontSize if prefs else "medium",
             "showEncouragement": prefs.showEncouragement if prefs else True,
             "breakInterval": prefs.breakInterval if prefs else 15,
-            "focusMode": prefs.focusMode if prefs else False
+            "focusMode": prefs.focusMode if prefs else False,
         }
-        
+
         return StartSessionResponse(
             session_id=result["session_id"],
             resumed=result["resumed"],
@@ -210,29 +219,22 @@ async def start_session(
             first_item=ItemWithAccessibility(**result["first_item"]),
             ability_estimates=result["ability_estimates"],
             standard_errors=result["standard_errors"],
-            ui_config=ui_config
+            ui_config=ui_config,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/submit-response", response_model=SubmitResponseResponse)
-async def submit_response(
-    request: SubmitResponseRequest,
-    db: Session = Depends(get_db)
-):
+async def submit_response(request: SubmitResponseRequest, db: Session = Depends(get_db)):
     """
     Submit item response with enhanced engagement tracking
     Returns next item with personalized encouragement
     """
     try:
-        time_started = datetime.fromisoformat(
-            request.time_started.replace('Z', '+00:00')
-        )
-        time_submitted = datetime.fromisoformat(
-            request.time_submitted.replace('Z', '+00:00')
-        )
-        
+        time_started = datetime.fromisoformat(request.time_started.replace("Z", "+00:00"))
+        time_submitted = datetime.fromisoformat(request.time_submitted.replace("Z", "+00:00"))
+
         result = BaselineAssessmentService.submit_response(
             db=db,
             session_id=request.session_id,
@@ -240,23 +242,20 @@ async def submit_response(
             response_data=request.response,
             engagement_metrics=request.engagement_metrics.dict(),
             time_started=time_started,
-            time_submitted=time_submitted
+            time_submitted=time_submitted,
         )
-        
-        # Generate encouragement message
+
         encouragement = BaselineAssessmentService.generate_encouragement(
             correct=result["correct"],
             confidence_level=request.engagement_metrics.confidenceLevel,
             items_answered=result.get("items_answered", 0),
-            grade_band=result.get("grade_band", "K-5")
+            grade_band=result.get("grade_band", "K-5"),
         )
-        
-        # Check if break should be suggested
+
         should_suggest_break = BaselineAssessmentService.should_suggest_break(
-            db=db,
-            session_id=request.session_id
+            db=db, session_id=request.session_id
         )
-        
+
         response_data = {
             "scored": result["scored"],
             "correct": result["correct"],
@@ -268,14 +267,11 @@ async def submit_response(
             "next_domain": result.get("nextDomain"),
             "assessment_complete": result["assessmentComplete"],
             "encouragement_message": encouragement,
-            "should_suggest_break": should_suggest_break
+            "should_suggest_break": should_suggest_break,
         }
-        
         if result.get("nextItem"):
-            response_data["next_item"] = (
-                ItemWithAccessibility(**result["nextItem"])
-            )
-        
+            response_data["next_item"] = ItemWithAccessibility(**result["nextItem"])
+
         return SubmitResponseResponse(**response_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -284,11 +280,7 @@ async def submit_response(
 
 
 @router.post("/sessions/{session_id}/break", response_model=BreakResponse)
-async def start_break(
-    session_id: str,
-    request: BreakRequest,
-    db: Session = Depends(get_db)
-):
+async def start_break(session_id: str, request: BreakRequest, db: Session = Depends(get_db)):
     """
     Pause session and provide break activity suggestions
     """
@@ -297,31 +289,26 @@ async def start_break(
             db=db,
             session_id=session_id,
             break_type=request.break_type,
-            activity_name=request.activity_name
+            activity_name=request.activity_name,
         )
-        
+
         # Get session info for context
-        session_info = BaselineAssessmentService.get_session_status(
-            db, session_id
-        )
+        session_info = BaselineAssessmentService.get_session_status(db, session_id)
         grade_band = session_info.get("grade_band", "K-5")
-        
+
         # Generate activity suggestion
         activity = BaselineAssessmentService.get_break_activity(
-            break_type=request.break_type,
-            grade_band=grade_band
+            break_type=request.break_type, grade_band=grade_band
         )
-        
+
         # Generate mindfulness prompts
-        prompts = BaselineAssessmentService.get_mindfulness_prompts(
-            grade_band
-        )
-        
+        prompts = BaselineAssessmentService.get_mindfulness_prompts(grade_band)
+
         return BreakResponse(
             break_id=break_id,
             activity_suggestion=activity,
             mindfulness_prompts=prompts,
-            estimated_duration_minutes=5
+            estimated_duration_minutes=5,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -332,22 +319,15 @@ async def end_break(
     session_id: str,
     break_id: str,
     felt_helpful: Optional[bool] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     End break and resume assessment
     """
     try:
-        BaselineAssessmentService.end_break(
-            db=db,
-            break_id=break_id,
-            felt_helpful=felt_helpful
-        )
-        
-        return {
-            "message": "Break ended successfully",
-            "session_id": session_id
-        }
+        BaselineAssessmentService.end_break(db=db, break_id=break_id, felt_helpful=felt_helpful)
+
+        return {"message": "Break ended successfully", "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -358,26 +338,23 @@ async def preview_items(
     grade_band: str,
     accessibility_features: Optional[str] = None,
     limit: int = 5,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Preview questions by domain/grade_band for parents/teachers
     Returns sanitized items without correct answers
     """
     try:
-        features_list = (
-            accessibility_features.split(',')
-            if accessibility_features else []
-        )
-        
+        features_list = accessibility_features.split(",") if accessibility_features else []
+
         items, total = BaselineAssessmentService.get_preview_items(
             db=db,
             domain=domain,
             grade_band=grade_band,
             accessibility_features=features_list,
-            limit=limit
+            limit=limit,
         )
-        
+
         # Sanitize items (remove correct answers)
         sanitized_items = []
         for item in items:
@@ -388,114 +365,83 @@ async def preview_items(
                 "type": item["type"],
                 "stem": item["stem"],
                 "stimulus": item.get("stimulus"),
-                "estimatedDifficultyLevel": item.get(
-                    "estimatedDifficultyLevel"
-                ),
+                "estimatedDifficultyLevel": item.get("estimatedDifficultyLevel"),
                 "estimatedTime": item.get("estimatedTime"),
-                "neurodiverseFriendly": item.get(
-                    "neurodiverseFriendly", False
-                )
+                "neurodiverseFriendly": item.get("neurodiverseFriendly", False),
             }
-            
+
             # Include options but without correct flags
             if item.get("options"):
                 sanitized["options"] = [
-                    {"id": opt["id"], "label": opt["label"]}
-                    for opt in item["options"]
+                    {"id": opt["id"], "label": opt["label"]} for opt in item["options"]
                 ]
-            
+
             sanitized_items.append(sanitized)
-        
-        return PreviewItemsResponse(
-            items=sanitized_items,
-            total_available=total
-        )
+
+        return PreviewItemsResponse(items=sanitized_items, total_available=total)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/sessions/{session_id}/status")
-async def get_session_status(
-    session_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_session_status(session_id: str, db: Session = Depends(get_db)):
     """
     Get current session status with accessibility usage report
     """
     try:
-        status = BaselineAssessmentService.get_session_status(
-            db, session_id
-        )
-        
+        status = BaselineAssessmentService.get_session_status(db, session_id)
+
         # Add accessibility usage report
-        accessibility_report = (
-            BaselineAssessmentService.get_accessibility_usage_report(
-                db=db,
-                session_id=session_id
-            )
+        accessibility_report = BaselineAssessmentService.get_accessibility_usage_report(
+            db=db, session_id=session_id
         )
-        
-        return {
-            **status,
-            "accessibility_usage": accessibility_report
-        }
+
+        return {**status, "accessibility_usage": accessibility_report}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/results/{session_id}")
-async def get_results(
-    session_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_results(session_id: str, db: Session = Depends(get_db)):
     """
     Get final assessment results with neurodiverse-specific recommendations
     """
     try:
         results = BaselineAssessmentService.get_results(db, session_id)
-        
+
         # Generate neurodiverse-specific recommendations
         neurodiverse_recommendations = (
-            BaselineAssessmentService.generate_neurodiverse_recommendations(
-                db=db,
-                session_id=session_id,
-                results=results
-            )
+            BaselineAssessmentService.generate_neurodiverse_recommendations(results=results)
         )
-        
+
         # Format for IEP documentation
         iep_report = BaselineAssessmentService.format_for_iep(
-            results=results,
-            neurodiverse_recommendations=neurodiverse_recommendations
+            results=results, neurodiverse_recommendations=neurodiverse_recommendations
         )
-        
+
         return {
             **results,
             "neurodiverse_recommendations": neurodiverse_recommendations,
-            "iep_report": iep_report
+            "iep_report": iep_report,
         }
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/learner/{learner_id}/accessibility-preferences")
-async def get_accessibility_preferences(
-    learner_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_accessibility_preferences(learner_id: str, db: Session = Depends(get_db)):
     """
     Get learner's saved accessibility preferences
     """
     try:
         preferences = BaselineAssessmentService.get_accessibility_preferences(
-            db=db,
-            learner_id=learner_id
+            db=db, learner_id=learner_id
         )
-        
+
         if not preferences:
             # Return defaults
             return AccessibilityPreferences().dict()
-        
+
         return preferences
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -503,58 +449,52 @@ async def get_accessibility_preferences(
 
 @router.put("/learner/{learner_id}/accessibility-preferences")
 async def update_accessibility_preferences(
-    learner_id: str,
-    preferences: AccessibilityPreferences,
-    db: Session = Depends(get_db)
+    learner_id: str, preferences: AccessibilityPreferences, db: Session = Depends(get_db)
 ):
     """
     Update learner's accessibility preferences
     """
     try:
         BaselineAssessmentService.save_accessibility_preferences(
-            db=db,
-            learner_id=learner_id,
-            preferences=preferences.dict()
+            db=db, learner_id=learner_id, preferences=preferences.dict()
         )
-        
+
         return {"message": "Preferences updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/session/{session_id}", response_model=SessionStatusResponse)
-async def get_session(
-    session_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_session(session_id: str, db: Session = Depends(get_db)):
     """
     Get current session status and progress (legacy endpoint)
     """
     try:
         import json
+
         from sqlalchemy import text
-        
+
         session = db.execute(
             text("""
-                SELECT id, status, current_domain, domains_completed_json,
-                       items_answered, ability_estimates_json,
+                SELECT id, status, current_domain,
+                       total_items_completed, ability_estimates_json,
                        standard_errors_json
                 FROM baseline_sessions WHERE id = :id
             """),
-            {"id": session_id}
+            {"id": session_id},
         ).fetchone()
-        
+
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         return SessionStatusResponse(
             session_id=session[0],
             status=session[1],
             current_domain=session[2],
-            domains_completed=json.loads(session[3] or '[]'),
-            items_answered=session[4],
-            ability_estimates=json.loads(session[5] or '{}'),
-            standard_errors=json.loads(session[6] or '{}')
+            domains_completed=[],  # Not stored in current schema
+            items_answered=session[3],
+            ability_estimates=json.loads(session[4] or "{}"),
+            standard_errors=json.loads(session[5] or "{}"),
         )
     except HTTPException:
         raise
@@ -563,70 +503,72 @@ async def get_session(
 
 
 @router.post("/session/{session_id}/pause")
-async def pause_session(
-    session_id: str,
-    db: Session = Depends(get_db)
-):
+async def pause_session(session_id: str, db: Session = Depends(get_db)):
     """
     Pause an in-progress session
     """
     try:
         from sqlalchemy import text
-        
+
         db.execute(
             text("""
                 UPDATE baseline_sessions
                 SET status = 'paused', paused_at = :now
                 WHERE id = :id AND status = 'in_progress'
             """),
-            {"id": session_id, "now": datetime.utcnow()}
+            {"id": session_id, "now": datetime.utcnow()},
         )
         db.commit()
-        
+
         return {"message": "Session paused", "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/session/{session_id}/resume")
-async def resume_session(
-    session_id: str,
-    db: Session = Depends(get_db)
-):
+async def resume_session(session_id: str, db: Session = Depends(get_db)):
     """
     Resume a paused session
     """
     try:
         from sqlalchemy import text
-        
+
         db.execute(
             text("""
                 UPDATE baseline_sessions
                 SET status = 'in_progress', resumed_at = :now
                 WHERE id = :id AND status = 'paused'
             """),
-            {"id": session_id, "now": datetime.utcnow()}
+            {"id": session_id, "now": datetime.utcnow()},
         )
         db.commit()
-        
+
         return {"message": "Session resumed", "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/items/{domain}/{grade_band}")
-async def get_domain_items(
-    domain: str,
-    grade_band: str,
-    db: Session = Depends(get_db)
-):
+async def get_domain_items(domain: str, grade_band: str, db: Session = Depends(get_db)):
     """
     Get all active items for a domain and grade band (for testing/preview)
     """
     try:
-        import json
+        import logging
+
         from sqlalchemy import text
-        
+
+        logger = logging.getLogger(__name__)
+
+        # Debug: Log database URL
+        from app.core.config import settings
+
+        logger.info(f"🔍 DATABASE_URL being used: {settings.DATABASE_URL}")
+
+        # Debug: Check if table exists
+        tables = db.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
+        logger.info(f"🔍 Available tables: {[t[0] for t in tables]}")
+
         items = db.execute(
             text("""
                 SELECT id, item_type, stem, difficulty,
@@ -636,9 +578,9 @@ async def get_domain_items(
                       AND status = 'active'
                 ORDER BY difficulty
             """),
-            {"domain": domain, "grade_band": grade_band}
+            {"domain": domain, "grade_band": grade_band},
         ).fetchall()
-        
+
         return {
             "domain": domain,
             "grade_band": grade_band,
@@ -650,11 +592,152 @@ async def get_domain_items(
                     "stem": row[2],
                     "difficulty": row[3],
                     "discrimination": row[4],
-                    "cognitive_level": row[5]
+                    "cognitive_level": row[5],
                 }
                 for row in items
-            ]
+            ],
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# PERFORMANCE MONITORING AND IRT RECALIBRATION ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.post("/items/{item_id}/recalibrate")
+async def recalibrate_item(item_id: str, method: str = "bayesian", db: Session = Depends(get_db)):
+    """
+    Manually trigger IRT recalibration for an item
+    Requires educator/admin permissions
+    """
+    try:
+        from app.services.irt_calibration_service import IRTCalibrationService
+
+        result = IRTCalibrationService.recalibrate_item(db=db, item_id=item_id, method=method)
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/items/batch-recalibrate")
+async def batch_recalibrate(
+    domain: Optional[str] = None,
+    min_responses: int = 30,
+    days_since_last_calibration: int = 30,
+    db: Session = Depends(get_db),
+):
+    """
+    Batch recalibrate items meeting criteria
+    """
+    try:
+        from app.services.irt_calibration_service import IRTCalibrationService
+
+        result = IRTCalibrationService.batch_recalibrate_items(
+            db=db,
+            domain=domain,
+            min_responses=min_responses,
+            days_since_last_calibration=days_since_last_calibration,
+        )
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/quality-report")
+async def get_quality_report(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate comprehensive quality report
+    """
+    try:
+        from app.services.irt_calibration_service import PerformanceMonitor
+
+        report = PerformanceMonitor.generate_quality_report(
+            db=db, start_date=start_date, end_date=end_date
+        )
+
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/problematic-items")
+async def get_problematic_items(domain: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Get list of items that need revision or retirement
+    """
+    try:
+        from app.services.irt_calibration_service import IRTCalibrationService
+
+        items = IRTCalibrationService.identify_problematic_items(db=db, domain=domain)
+
+        return {"problematicItems": items, "total": len(items)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/review-queue")
+async def get_review_queue(
+    domain: Optional[str] = None,
+    priority: Optional[str] = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """
+    Get items pending expert review
+    """
+    try:
+        from app.services.question_quality_validator import (
+            QuestionReviewWorkflow,
+        )
+
+        reviews = QuestionReviewWorkflow.get_pending_reviews(
+            db=db, domain=domain, priority=priority, limit=limit
+        )
+
+        return {"pendingReviews": reviews, "total": len(reviews)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/review/{review_id}/submit")
+async def submit_expert_review(
+    review_id: str,
+    reviewer_id: str,
+    approved: bool,
+    feedback: str,
+    quality_ratings: Dict[str, int],
+    suggested_revisions: Optional[Dict] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Submit expert educator review
+    """
+    try:
+        from app.services.question_quality_validator import (
+            QuestionReviewWorkflow,
+        )
+
+        QuestionReviewWorkflow.submit_review(
+            db=db,
+            review_id=review_id,
+            reviewer_id=reviewer_id,
+            approved=approved,
+            feedback=feedback,
+            quality_ratings=quality_ratings,
+            suggested_revisions=suggested_revisions,
+        )
+
+        return {
+            "message": "Review submitted successfully",
+            "reviewId": review_id,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

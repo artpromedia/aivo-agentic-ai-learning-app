@@ -1,4 +1,4 @@
-import { routeRegistry, RouteDefinition } from '@aivo/utils';
+import { RouteDefinition, routeRegistry } from '@aivo/utils';
 
 /**
  * Admin Portal Route Definitions
@@ -101,6 +101,26 @@ export const adminPortalRoutes: RouteDefinition[] = [
     roles: ['global_admin', 'district_admin'],
     category: 'admin',
     testId: 'page-subject-management',
+  },
+
+  // AI Baseline Assessment Management
+  {
+    path: '/assessment/question-review',
+    screen: 'QuestionReviewDashboard',
+    title: 'Question Review Dashboard',
+    description: 'Review and approve AI-generated assessment questions',
+    roles: ['global_admin', 'district_admin', 'teacher'],
+    category: 'admin',
+    testId: 'page-question-review',
+  },
+  {
+    path: '/assessment/quality-metrics',
+    screen: 'QualityMetricsDashboard',
+    title: 'Quality Metrics Dashboard',
+    description: 'Monitor question quality and performance metrics',
+    roles: ['global_admin', 'district_admin', 'school_admin'],
+    category: 'admin',
+    testId: 'page-quality-metrics',
   },
 
   // Analytics & Reports
