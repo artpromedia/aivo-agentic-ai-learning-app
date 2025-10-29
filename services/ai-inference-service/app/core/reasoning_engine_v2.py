@@ -172,9 +172,7 @@ class ReasoningEngine:
             # ReAct Loop
             for step_num in range(1, self.max_reasoning_steps + 1):
                 # Step 1: THOUGHT
-                thought = await self._generate_intervention_thought(
-                    situation, trace.steps
-                )
+                thought = await self._generate_intervention_thought(situation, trace.steps)
                 logger.info(f"💭 Step {step_num} Thought: {thought[:100]}...")
 
                 step = ReasoningStep(
@@ -208,9 +206,7 @@ class ReasoningEngine:
                     break
 
             # Make final intervention decision
-            decision_data = await self._make_intervention_decision(
-                situation, trace
-            )
+            decision_data = await self._make_intervention_decision(situation, trace)
 
             intervention = InterventionDecision(**decision_data)
             trace.final_decision = intervention.model_dump()
@@ -282,10 +278,7 @@ class ReasoningEngine:
         if previous_steps:
             last_steps = previous_steps[-2:]
             previous_context = "\n".join(
-                [
-                    f"Previous: {s.thought if s.thought else s.observation}"
-                    for s in last_steps
-                ]
+                [f"Previous: {s.thought if s.thought else s.observation}" for s in last_steps]
             )
 
         return f"""Analyze this learning situation and form a THOUGHT:
@@ -297,7 +290,7 @@ SITUATION:
 - Recent Errors: {len(recent_errors)} errors
 
 LEARNER PROFILE:
-- Diagnoses: {', '.join(diagnoses) if diagnoses else 'None'}
+- Diagnoses: {", ".join(diagnoses) if diagnoses else "None"}
 - Learning Style: {learning_style}
 - Attention Span: {attention_span} minutes
 
@@ -344,9 +337,7 @@ Respond in JSON:
 
         return json.loads(response.choices[0].message.content)
 
-    async def _observe(
-        self, action: Dict[str, Any], situation: Dict[str, Any]
-    ) -> str:
+    async def _observe(self, action: Dict[str, Any], situation: Dict[str, Any]) -> str:
         """Execute investigation and return observation"""
         action_name = action["action"]
 
@@ -418,7 +409,9 @@ Respond in JSON:
                     related_sessions
                 )
                 if success_rate < 0.5:
-                    return f"Prerequisites appear weak: {success_rate:.0%} success on related topics"
+                    return (
+                        f"Prerequisites appear weak: {success_rate:.0%} success on related topics"
+                    )
                 else:
                     return f"Prerequisites appear adequate: {success_rate:.0%} success on related topics"
 
@@ -459,15 +452,11 @@ Respond in JSON:
             return "No historical data available"
 
         # Find successful interventions
-        successful = [
-            s for s in session_history[-10:] if s.get("intervention_effective", False)
-        ]
+        successful = [s for s in session_history[-10:] if s.get("intervention_effective", False)]
 
         if successful:
             intervention_types = [s.get("intervention_type") for s in successful]
-            most_effective = max(
-                set(intervention_types), key=intervention_types.count
-            )
+            most_effective = max(set(intervention_types), key=intervention_types.count)
             return f"Historical data shows '{most_effective}' interventions were most effective"
         else:
             return "No clearly successful interventions in recent history"
@@ -613,9 +602,7 @@ Be honest about confidence levels. If uncertain, acknowledge it."""
         """
         logger.info(f"📚 Planning teaching strategy for: {learning_goal}")
 
-        prompt = self._build_strategy_planning_prompt(
-            learning_goal, constraints, learner_id
-        )
+        prompt = self._build_strategy_planning_prompt(learning_goal, constraints, learner_id)
 
         try:
             response = await self.ai_client.chat_completion(
@@ -640,9 +627,7 @@ Be honest about confidence levels. If uncertain, acknowledge it."""
                 phases=phases,
                 scaffolding_sequence=strategy_data["scaffolding_sequence"],
                 total_duration_estimate=strategy_data["total_duration_estimate"],
-                diagnosis_considerations=strategy_data.get(
-                    "diagnosis_considerations", {}
-                ),
+                diagnosis_considerations=strategy_data.get("diagnosis_considerations", {}),
                 overall_contingencies=strategy_data.get("overall_contingencies", {}),
                 confidence=strategy_data.get("confidence", 0.75),
             )
@@ -672,7 +657,7 @@ CONSTRAINTS:
 - Attention Span: {attention_span} minutes
 - Energy Level: {energy_level}
 - Time Available: {time_available}
-- Diagnoses: {', '.join(diagnoses) if diagnoses else 'None'}
+- Diagnoses: {", ".join(diagnoses) if diagnoses else "None"}
 
 Create a multi-phase strategy in JSON format:
 {{
@@ -808,7 +793,9 @@ Be specific, practical, and action-oriented."""
                 **reflection_data,
             )
 
-            logger.info(f"✅ Reflection complete with {len(reflection.adjustments_needed)} adjustments identified")
+            logger.info(
+                f"✅ Reflection complete with {len(reflection.adjustments_needed)} adjustments identified"
+            )
 
             return reflection
 
@@ -905,9 +892,7 @@ Your goal: Become a better AI teacher through systematic reflection."""
 
         return f"{context} - {problem} - frustration: {frustration}"
 
-    def format_reasoning_trace_for_display(
-        self, trace: ReasoningTrace
-    ) -> str:
+    def format_reasoning_trace_for_display(self, trace: ReasoningTrace) -> str:
         """Format reasoning trace with emojis for human readability"""
         output = []
         output.append(f"🧠 REASONING TRACE: {trace.trace_id}")
@@ -936,9 +921,7 @@ Your goal: Become a better AI teacher through systematic reflection."""
 
         return "\n".join(output)
 
-    async def _save_reasoning_trace(
-        self, db: Session, trace: ReasoningTrace
-    ) -> None:
+    async def _save_reasoning_trace(self, db: Session, trace: ReasoningTrace) -> None:
         """Store reasoning trace for audit trail and explainability"""
         try:
             db.execute(
@@ -963,9 +946,7 @@ Your goal: Become a better AI teacher through systematic reflection."""
                     "learner_id": trace.learner_id,
                     "decision_context": trace.decision_context,
                     "situation_summary": trace.situation_summary,
-                    "reasoning_steps": json.dumps(
-                        [s.model_dump() for s in trace.steps]
-                    ),
+                    "reasoning_steps": json.dumps([s.model_dump() for s in trace.steps]),
                     "final_decision": json.dumps(trace.final_decision),
                     "total_confidence": trace.total_confidence,
                     "started_at": trace.started_at,
