@@ -187,7 +187,7 @@ class ProactiveAgent:
         db: Session,
     ) -> List[Dict[str, Any]]:
         """
-        Use ReasoningEngine to decide what actions to take, then execute them
+        Use ReasoningEngine v2 to decide what actions to take, then execute them
 
         Args:
             learner_id: Learner ID
@@ -202,49 +202,118 @@ class ProactiveAgent:
         """
         interventions = []
 
-        # Build context for reasoning
-        situation = {
-            "goal": {
-                "target_skill": goal.target_skill,
-                "progress": evaluation["progress_score"],
-                "on_track": evaluation["on_track"],
-                "obstacles": evaluation["obstacles_detected"],
-            },
-            "recent_performance": {
-                "sessions": len(recent_interactions),
-                "trend": evaluation["performance_trends"]["trend"],
-            },
-        }
+        try:
+            # Build structured context for ReAct reasoning
+            context = "goal_monitoring"
+            problem_type = "progress_evaluation"
 
-        # Use reasoning engine to decide
-        question = f"What interventions should I take for learner {learner_id} on goal '{goal.target_skill}'?"
+            # Extract recent errors/challenges
+            recent_errors = []
+            for interaction in recent_interactions[-5:]:  # Last 5 sessions
+                if interaction.get("errors"):
+                    recent_errors.extend(interaction["errors"])
 
-        reasoning_result = await self.reasoning_engine.reason_and_decide(
-            question=question,
-            context=situation,
-            available_actions=[
-                "adjust_difficulty",
-                "modify_goal",
-                "provide_encouragement",
-                "suggest_break",
-                "notify_teacher",
-                "create_remedial_plan",
-            ],
-        )
+            # Determine frustration level from evaluation
+            frustration_level = "low"
+            if not evaluation["on_track"]:
+                if evaluation["progress_score"] < 30:
+                    frustration_level = "high"
+                elif evaluation["progress_score"] < 60:
+                    frustration_level = "moderate"
 
-        logger.info(f"🧠 Reasoning complete: {reasoning_result.get('final_answer', 'No action')}")
+            # Get learner profile (simplified - in production, query from DB)
+            learning_profile = {
+                "diagnoses": goal.diagnosis_adaptations.get("diagnoses", []),
+                "learning_style": goal.diagnosis_adaptations.get("learning_style", "visual"),
+                "attention_span_minutes": goal.diagnosis_adaptations.get("attention_span", 15),
+            }
 
-        # Execute recommended actions
-        for action in reasoning_result.get("recommended_actions", []):
+            # Build session history summary
+            session_history = [
+                {
+                    "session_id": interaction.get("id"),
+                    "timestamp": interaction.get("created_at"),
+                    "performance": interaction.get("performance", 0.5),
+                    "engagement": interaction.get("engagement", "moderate"),
+                }
+                for interaction in recent_interactions[-10:]
+            ]
+
+            # Use ReasoningEngine v2 with structured intervention reasoning
+            logger.info(f"🧠 Starting ReAct reasoning for learner {learner_id}...")
+
+            # Import reason_intervention function from reasoning_engine
+            from app.core.reasoning_engine import reason_intervention
+
+            decision = await reason_intervention(
+                brain_id=brain_id,
+                learner_id=learner_id,
+                context=context,
+                problem_type=problem_type,
+                recent_errors=recent_errors,
+                frustration_level=frustration_level,
+                learning_profile=learning_profile,
+                session_history=session_history,
+                db=db,
+            )
+
+            logger.info(
+                f"🎯 Intervention decision: {decision.intervention_type} "
+                f"(confidence: {decision.confidence:.2f})"
+            )
+
+            # Map ReasoningEngine decision to ProactiveAgent action types
+            action_mapping = {
+                "hint": "provide_encouragement",
+                "explanation": "provide_encouragement",
+                "break": "suggest_break",
+                "adjust_difficulty": "adjust_difficulty",
+                "request_help": "notify_teacher",
+            }
+
+            action_type = action_mapping.get(decision.intervention_type, "provide_encouragement")
+
+            # Execute the intervention
             intervention = await self._execute_intervention(
                 learner_id=learner_id,
                 brain_id=brain_id,
                 goal=goal,
-                action_type=action,
-                reasoning=reasoning_result.get("reasoning_trace", ""),
+                action_type=action_type,
+                reasoning=decision.reasoning_summary,
+                decision=decision,  # Pass full structured decision
                 db=db,
             )
             interventions.append(intervention)
+
+            # If confidence is low or fallback needed, consider remedial plan
+            if decision.confidence < 0.5:
+                logger.info(f"⚠️ Low confidence ({decision.confidence:.2f}), creating remedial plan")
+                remedial = await self._execute_intervention(
+                    learner_id=learner_id,
+                    brain_id=brain_id,
+                    goal=goal,
+                    action_type="create_remedial_plan",
+                    reasoning=decision.fallback_plan,
+                    decision=decision,
+                    db=db,
+                )
+                interventions.append(remedial)
+
+        except Exception as e:
+            logger.error(f"❌ Reasoning failed, falling back to heuristics: {e}")
+
+            # Fallback to simple heuristic-based decision
+            if not evaluation["on_track"] and evaluation["progress_score"] < 40:
+                intervention = await self._execute_intervention(
+                    learner_id=learner_id,
+                    brain_id=brain_id,
+                    goal=goal,
+                    action_type="notify_teacher",
+                    reasoning="Fallback: Significant struggles detected",
+                    decision=None,
+                    db=db,
+                )
+                interventions.append(intervention)
 
         return interventions
 
@@ -256,6 +325,7 @@ class ProactiveAgent:
         action_type: str,
         reasoning: str,
         db: Session,
+        decision: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Execute a specific intervention action
@@ -267,11 +337,12 @@ class ProactiveAgent:
             action_type: Type of intervention
             reasoning: Reasoning for the action
             db: Database session
+            decision: Optional structured InterventionDecision from v2
 
         Returns:
             Intervention record
         """
-        logger.info(f"🎯 Executing intervention: {action_type} for {learner_id}")
+        logger.info(f"🎯 Executing: {action_type} for {learner_id}")
 
         intervention = {
             "intervention_id": f"int_{datetime.utcnow().timestamp()}",
@@ -282,6 +353,7 @@ class ProactiveAgent:
             "reasoning": reasoning,
             "executed_at": datetime.utcnow().isoformat(),
             "result": None,
+            "structured_decision": decision.dict() if decision else None,
         }
 
         try:
