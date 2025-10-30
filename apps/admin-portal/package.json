@@ -18,7 +18,7 @@
     "@aivo/ui": "workspace:*",
     "@aivo/utils": "workspace:*",
     "@chakra-ui/icons": "^2.1.0",
-    "@chakra-ui/react": "^2.8.0",
+    "@chakra-ui/react": "^3.28.0",
     "@emotion/react": "^11.11.0",
     "@emotion/styled": "^11.11.0",
     "axios": "^1.6.0",
