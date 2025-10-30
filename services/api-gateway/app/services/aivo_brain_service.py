@@ -1,0 +1,248 @@
+"""
+Aivo Brain AI Service
+Uses the trained Aivo Brain Model for baseline assessment question generation.
+Falls back to external providers (OpenAI, Anthropic, Gemini) only if brain is unavailable.
+"""
+
+import json
+import logging
+import os
+from typing import Any, Dict, Optional, Tuple
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+
+class AivoBrainService:
+    """
+    Service to interact with the Aivo Brain Model for question generation.
+    The Aivo Brain is trained on curriculum data from US, Africa, Middle East,
+    Asia, and Europe, with special education adaptations built-in.
+    """
+
+    def __init__(self):
+        """Initialize Aivo Brain service"""
+        self.brain_service_url = os.getenv(
+            "AIVO_BRAIN_SERVICE_URL",
+            "http://localhost:8002",  # AI Inference Service
+        )
+        self.brain_enabled = os.getenv("AIVO_BRAIN_ENABLED", "true").lower() == "true"
+        self.timeout = 30.0  # 30 second timeout for brain inference
+
+        if self.brain_enabled:
+            logger.info(f"✓ Aivo Brain Service initialized: {self.brain_service_url}")
+        else:
+            logger.warning("⚠️  Aivo Brain disabled, will use fallback providers")
+
+    async def is_available(self) -> bool:
+        """Check if Aivo Brain service is available"""
+        if not self.brain_enabled:
+            return False
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{self.brain_service_url}/health")
+                return response.status_code == 200
+        except Exception as e:
+            logger.warning(f"Aivo Brain health check failed: {e}")
+            return False
+
+    async def generate_question(
+        self,
+        prompt: str,
+        learner_id: str,
+        domain: str,
+        sub_domain: str,
+        grade_band: str,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Generate question using Aivo Brain Model
+
+        Args:
+            prompt: The generation prompt
+            learner_id: Learner identifier for brain personalization
+            domain: Subject domain (reading, math, etc.)
+            sub_domain: Specific sub-domain
+            grade_band: Grade level band
+            temperature: Sampling temperature
+            max_tokens: Maximum response tokens
+
+        Returns:
+            Tuple of (question_data, metadata) or (None, None) if failed
+        """
+        if not self.brain_enabled:
+            return None, None
+
+        try:
+            start_time = time.time()
+
+            # Check if brain exists for learner, create if needed
+            brain_id = await self._ensure_brain_instance(learner_id, grade_band)
+
+            if not brain_id:
+                logger.warning(f"Failed to get brain instance for learner {learner_id}")
+                return None, None
+
+            # Call Aivo Brain for inference
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.brain_service_url}/v1/inference/generate",
+                    json={
+                        "brain_id": brain_id,
+                        "prompt": prompt,
+                        "context": {
+                            "domain": domain,
+                            "sub_domain": sub_domain,
+                            "grade_band": grade_band,
+                            "task": "baseline_assessment_question_generation",
+                        },
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                    },
+                )
+
+                if response.status_code != 200:
+                    logger.error(
+                        f"Aivo Brain inference failed: {response.status_code} - {response.text}"
+                    )
+                    return None, None
+
+                result = response.json()
+                latency_ms = (time.time() - start_time) * 1000
+
+                # Parse the response text as JSON (the question data)
+                try:
+                    question_data = json.loads(result["response_text"])
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse Aivo Brain response as JSON")
+                    return None, None
+
+                # Build metadata
+                metadata = {
+                    "provider_used": "aivo_brain",
+                    "model_used": "aivo-base-brain-v1",
+                    "brain_id": brain_id,
+                    "latency_ms": latency_ms,
+                    "tokens_used": result.get("tokens_used", 0),
+                    "complexity_level": result.get("complexity_level", "moderate"),
+                    "fallback_occurred": False,
+                    "fallback_chain": ["aivo_brain"],
+                }
+
+                logger.info(
+                    f"✓ Question generated by Aivo Brain "
+                    f"(brain_id={brain_id[:20]}...) in {latency_ms:.0f}ms"
+                )
+
+                return question_data, metadata
+
+        except httpx.TimeoutException:
+            logger.error(f"Aivo Brain request timeout after {self.timeout}s")
+            return None, None
+        except Exception as e:
+            logger.error(f"Aivo Brain generation error: {e}")
+            return None, None
+
+    async def _ensure_brain_instance(self, learner_id: str, grade_band: str) -> Optional[str]:
+        """
+        Ensure brain instance exists for learner, create if needed
+
+        Args:
+            learner_id: Learner identifier
+            grade_band: Grade level band for initialization
+
+        Returns:
+            Brain ID or None if failed
+        """
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Check for existing brain
+                response = await client.get(f"{self.brain_service_url}/v1/brain/get/{learner_id}")
+
+                if response.status_code == 200:
+                    brain_data = response.json()
+                    return brain_data.get("brain_id")
+
+                # Create new brain instance
+                logger.info(f"Creating new brain instance for learner {learner_id}")
+
+                # Parse grade level from grade_band
+                grade_map = {"K-5": 3, "6-8": 7, "9-12": 10}  # Use middle grade
+                grade_level = grade_map.get(grade_band, 5)
+
+                response = await client.post(
+                    f"{self.brain_service_url}/v1/brain/create",
+                    params={"learner_id": learner_id},
+                    json={
+                        "learner_id": learner_id,
+                        "grade_level": grade_level,
+                        "reading_level": f"{grade_level}th grade",
+                        "math_level": f"{grade_level}th grade",
+                        "learning_style": "balanced",
+                        "diagnoses": [],  # Will be enriched from learner profile
+                        "preferred_complexity": "moderate",
+                        "attention_span_minutes": 20,
+                        "support_level": "moderate",
+                        "accommodations": {},
+                    },
+                )
+
+                if response.status_code == 200:
+                    brain_data = response.json()
+                    return brain_data.get("brain_id")
+                else:
+                    logger.error(f"Failed to create brain: {response.status_code}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error ensuring brain instance: {e}")
+            return None
+
+
+# Async helper for synchronous contexts
+import asyncio
+import time
+
+
+def generate_question_sync(
+    prompt: str,
+    learner_id: str,
+    domain: str,
+    sub_domain: str,
+    grade_band: str,
+    temperature: float = 0.7,
+    max_tokens: int = 2000,
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """
+    Synchronous wrapper for generate_question
+
+    Returns:
+        Tuple of (question_data, metadata) or (None, None) if failed
+    """
+    service = AivoBrainService()
+
+    try:
+        # Run async function in new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(
+                service.generate_question(
+                    prompt=prompt,
+                    learner_id=learner_id,
+                    domain=domain,
+                    sub_domain=sub_domain,
+                    grade_band=grade_band,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            )
+            return result
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.error(f"Sync wrapper error: {e}")
+        return None, None
