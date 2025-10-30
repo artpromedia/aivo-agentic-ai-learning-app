@@ -28,6 +28,7 @@ from app.api.v1.parent import dashboard as parent_dashboard  # pylint: disable=i
 from app.routers import (
     baseline_assessment,  # pylint: disable=import-error
     model_cloning,  # pylint: disable=import-error
+    personalized_brain,  # pylint: disable=import-error
 )
 
 api_router = APIRouter()
@@ -57,6 +58,11 @@ api_router.include_router(model_cloning.router, prefix="/model-cloning", tags=["
 
 # Baseline assessment routes (adaptive IRT-based testing)
 api_router.include_router(baseline_assessment.router)
+
+# Personalized brain routes (individual learner brain cloning & retraining)
+api_router.include_router(
+    personalized_brain.router, prefix="/personalized-brain", tags=["personalized-brain"]
+)
 
 # Agentic AI Brain routes (autonomous goal planning, reasoning, memory)
 api_router.include_router(agentic.router)

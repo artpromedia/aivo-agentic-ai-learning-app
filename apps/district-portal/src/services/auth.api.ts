@@ -104,3 +104,4 @@ export async function getCurrentUser(accessToken: string): Promise<AuthUser> {
     role: userData.role,
   };
 }
+

@@ -11,7 +11,7 @@
 const getApiBaseUrl = (): string => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const meta = import.meta as any;
-  return meta?.env?.VITE_API_URL || 'http://localhost:8000';
+  return meta?.env?.VITE_API_URL || 'http://localhost:9000';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -302,3 +302,4 @@ export type {
   AddChildRequest,
   AssignLicenseRequest
 };
+

@@ -22,23 +22,23 @@ class CurriculumService:
         Returns:
             Dictionary with standards organized by domain and grade band
         """
-        # Get learner's district
+        # Get learner's grade level (district_id not in schema yet)
         learner = db.execute(
             text("""
-                SELECT district_id, grade_level, school_id
+                SELECT grade_level
                 FROM learners
                 WHERE id = :learner_id
             """),
             {"learner_id": learner_id},
         ).fetchone()
 
-        if not learner or not learner[0]:
-            # Use default district
+        if not learner:
+            # Use default
             district_id = "default-district"
+            grade_level = 5
         else:
-            district_id = learner[0]
-
-        grade_level = learner[1] if learner else 5
+            district_id = "default-district"  # Will use when added
+            grade_level = learner[0] or 5
 
         # Determine grade band
         if grade_level <= 5:

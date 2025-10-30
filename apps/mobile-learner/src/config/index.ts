@@ -7,7 +7,7 @@
 export const config = {
   // API Configuration
   api: {
-    baseUrl: process.env.API_BASE_URL || 'http://localhost:8000',
+    baseUrl: process.env.API_BASE_URL || 'http://localhost:9000',
     timeout: 30000, // 30 seconds
     retryAttempts: 3,
   },
@@ -74,3 +74,4 @@ export const config = {
 export type AppConfig = typeof config;
 
 export default config;
+

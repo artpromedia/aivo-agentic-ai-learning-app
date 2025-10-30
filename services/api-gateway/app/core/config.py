@@ -92,6 +92,20 @@ class Settings(BaseSettings):
     MAX_TOKENS: int = 4096
 
     # ========================================
+    # AI PROVIDER API KEYS (Baseline Assessment)
+    # ========================================
+    # Multi-provider fallback system for question generation
+    OPENAI_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+
+    # Optional: Force specific provider for testing
+    PRIMARY_AI_PROVIDER: Optional[str] = None  # openai | anthropic | gemini
+
+    # Optional: Use mock AI for development
+    USE_MOCK_AI: bool = False
+
+    # ========================================
     # OCR
     # ========================================
     OCR_ENGINE: str = "tesseract"  # tesseract | google-vision | aws-textract

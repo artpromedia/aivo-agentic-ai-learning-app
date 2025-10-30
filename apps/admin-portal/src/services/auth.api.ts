@@ -3,7 +3,7 @@
  * This bypasses the mock authentication in @aivo/auth and calls the real backend API
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:9000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
 
 export interface LoginCredentials {
   email: string;
@@ -104,3 +104,4 @@ export async function getCurrentUser(accessToken: string): Promise<AuthUser> {
     role: userData.role,
   };
 }
+

@@ -223,7 +223,9 @@ export function ItemRenderer({
       {/* Answer Options */}
       <div className="mb-6">
         {/* Yes/No or Single Choice */}
-        {(item.type === 'yes_no' || item.type === 'single_choice') && item.options && (
+        {(item.type === 'yes_no' || item.type === 'single_choice') && 
+         item.options && 
+         Array.isArray(item.options) && (
           <div className="space-y-3">
             {item.options.map((option) => (
               <button
@@ -247,7 +249,9 @@ export function ItemRenderer({
         )}
         
         {/* Multi-Select */}
-        {item.type === 'multi_select' && item.options && (
+        {item.type === 'multi_select' && 
+         item.options && 
+         Array.isArray(item.options) && (
           <div className="space-y-3">
             <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />

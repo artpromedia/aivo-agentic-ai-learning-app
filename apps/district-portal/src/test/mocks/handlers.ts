@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = 'http://localhost:9000'
 
 export const handlers = [
   // ============================================================================
@@ -78,3 +78,4 @@ export const handlers = [
     })
   }),
 ]
+

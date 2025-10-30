@@ -1,6 +1,7 @@
 """
 Multi-Provider AI Service for Baseline Assessment
-Supports OpenAI, Anthropic (Claude), and Google (Gemini) with automatic fallback
+Priority: Aivo Brain → OpenAI → Anthropic → Gemini → Meta Llama → Mock
+The Aivo Brain is trained on worldwide curriculum data and should be used first.
 """
 
 import json
@@ -8,6 +9,8 @@ import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
+
+from app.services.aivo_brain_service import AivoBrainService, generate_question_sync
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ class MultiProviderAIService:
         Initialize multi-provider AI service
 
         Args:
-            primary_provider: Preferred provider ('openai', 'anthropic', 'gemini')
+            primary_provider: Preferred provider ('openai', 'anthropic', 'gemini', 'llama')
             fallback_providers: Ordered list of fallback providers
         """
         self.primary_provider = primary_provider or self._detect_primary_provider()
@@ -54,6 +57,8 @@ class MultiProviderAIService:
             return "anthropic"
         elif os.getenv("GOOGLE_API_KEY"):
             return "gemini"
+        elif os.getenv("REPLICATE_API_TOKEN"):
+            return "llama"
         else:
             logger.warning("No API keys found, will use mock responses")
             return "mock"
@@ -68,6 +73,8 @@ class MultiProviderAIService:
             available.append("gemini")
         if os.getenv("OPENAI_API_KEY"):
             available.append("openai")
+        if os.getenv("REPLICATE_API_TOKEN"):
+            available.append("llama")
 
         # Remove primary from fallbacks
         primary = self._detect_primary_provider()
@@ -114,6 +121,18 @@ class MultiProviderAIService:
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini: {e}")
 
+        # Meta Llama via Replicate
+        if os.getenv("REPLICATE_API_TOKEN"):
+            try:
+                import replicate
+
+                self.clients["llama"] = replicate.Client(api_token=os.getenv("REPLICATE_API_TOKEN"))
+                logger.info("✓ Meta Llama (Replicate) client initialized")
+            except ImportError:
+                logger.warning("Replicate package not installed")
+            except Exception as e:
+                logger.error(f"Failed to initialize Llama: {e}")
+
     def generate_question(
         self,
         prompt: str,
@@ -153,6 +172,10 @@ class MultiProviderAIService:
                     )
                 elif provider == "gemini":
                     question, model = self._generate_gemini(
+                        prompt, temperature, max_tokens, model_override
+                    )
+                elif provider == "llama":
+                    question, model = self._generate_llama(
                         prompt, temperature, max_tokens, model_override
                     )
                 else:
@@ -285,6 +308,48 @@ class MultiProviderAIService:
 
         response_text = response.text.strip()
         question = json.loads(response_text)
+
+        return question, model_name
+
+    def _generate_llama(
+        self, prompt: str, temperature: float, max_tokens: int, model_override: Optional[str]
+    ) -> Tuple[Dict[str, Any], str]:
+        """Generate using Meta Llama via Replicate"""
+        client = self.clients["llama"]
+
+        # Model selection - using Llama 3.1 70B Instruct
+        model_name = model_override or os.getenv("LLAMA_MODEL", "meta/meta-llama-3.1-70b-instruct")
+
+        # Prepare the prompt with system instruction
+        full_prompt = (
+            "You are an expert educational assessment designer. "
+            "Always return valid JSON only, no markdown or explanatory text.\n\n"
+            f"{prompt}"
+        )
+
+        # Run the model
+        output = client.run(
+            model_name,
+            input={
+                "prompt": full_prompt,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": 0.9,
+            },
+        )
+
+        # Replicate returns a generator, join the output
+        response_text = "".join(output).strip()
+
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+
+        question = json.loads(response_text.strip())
 
         return question, model_name
 

@@ -122,12 +122,8 @@ class BaselineQuestionGenerator:
             district_curriculum = curriculum_data.get("standards", {})
 
         # Get specific standards for this domain/sub-domain
-        district_id = db.execute(
-            text("SELECT district_id FROM learners WHERE id = :id"),
-            {"id": learner_id},
-        ).fetchone()
-
-        district_id = district_id[0] if district_id and district_id[0] else "default-district"
+        # Note: district_id not in learners table yet, using default
+        district_id = "default-district"
 
         relevant_standards = CurriculumService.get_standards_for_domain(
             db=db,
@@ -170,6 +166,19 @@ class BaselineQuestionGenerator:
         # Generate question using Claude
         generated_question = BaselineQuestionGenerator._call_ai_agent(prompt)
 
+        # Check if it's a mock question - DO NOT cache mock questions
+        if "Mock Question" in generated_question.get("stem", ""):
+            print("⚠️  Mock question detected - NOT caching to database")
+            # Validate but don't cache
+            validated_question = BaselineQuestionGenerator._validate_and_calibrate(
+                generated_question=generated_question,
+                target_difficulty=target_difficulty,
+                domain=domain,
+                sub_domain=sub_domain,
+                grade_band=grade_band,
+            )
+            return validated_question
+
         # Validate and estimate IRT parameters
         validated_question = BaselineQuestionGenerator._validate_and_calibrate(
             generated_question=generated_question,
@@ -202,8 +211,8 @@ class BaselineQuestionGenerator:
                 text("""
                     SELECT
                         first_name, last_name, date_of_birth, grade_level,
-                        has_iep, iep_goals, diagnoses, learning_preferences,
-                        reading_level, strengths, challenges
+                        has_iep, diagnoses, accommodations,
+                        current_reading_level
                     FROM learners
                     WHERE id = :learner_id
                 """),
@@ -213,17 +222,20 @@ class BaselineQuestionGenerator:
             if not result:
                 return {"first_name": "Student", "age": 0, "grade_level": "unknown"}
 
+            # Parse JSON fields
+            import json
+
+            diagnoses = json.loads(result[5]) if result[5] else []
+            accommodations = json.loads(result[6]) if result[6] else []
+
             return {
                 "first_name": result[0] or "Student",
                 "age": BaselineQuestionGenerator._calculate_age(result[2]),
                 "grade_level": result[3] or "unknown",
                 "has_iep": bool(result[4]),
-                "iep_goals": result[5],
-                "diagnoses": result[6],
-                "learning_preferences": result[7],
-                "reading_level": result[8],
-                "strengths": result[9],
-                "challenges": result[10],
+                "diagnoses": diagnoses,
+                "accommodations": accommodations,
+                "reading_level": result[7],
             }
         except Exception:
             # Return default profile if learner table doesn't exist
@@ -282,34 +294,51 @@ class BaselineQuestionGenerator:
             asked_questions = [""]
 
         try:
-            result = db.execute(
-                text("""
-                    SELECT
-                        id, stem, options_json, difficulty, discrimination,
-                        guessing, sub_domain, item_type, stimulus,
-                        stimulus_type, hint_text, cognitive_level,
-                        estimated_time_seconds, read_aloud_enabled,
-                        allow_calculator
-                    FROM baseline_items
-                    WHERE domain = :domain
-                      AND sub_domain = :sub_domain
-                      AND grade_band = :grade_band
-                      AND difficulty BETWEEN :min_diff AND :max_diff
-                      AND stem NOT IN :asked_questions
-                      AND status = 'active'
-                    ORDER BY ABS(difficulty - :target_difficulty)
-                    LIMIT 1
-                """),
-                {
+            # Build dynamic NOT IN clause for asked questions
+            if asked_questions:
+                placeholders = ",".join([f":asked_{i}" for i in range(len(asked_questions))])
+                not_in_clause = f"AND stem NOT IN ({placeholders})"
+                params = {
                     "domain": domain,
                     "sub_domain": sub_domain,
                     "grade_band": grade_band,
                     "min_diff": target_difficulty - difficulty_range,
                     "max_diff": target_difficulty + difficulty_range,
                     "target_difficulty": target_difficulty,
-                    "asked_questions": tuple(asked_questions),
-                },
-            ).fetchone()
+                }
+                # Add asked questions to params
+                for i, q in enumerate(asked_questions):
+                    params[f"asked_{i}"] = q
+            else:
+                not_in_clause = ""
+                params = {
+                    "domain": domain,
+                    "sub_domain": sub_domain,
+                    "grade_band": grade_band,
+                    "min_diff": target_difficulty - difficulty_range,
+                    "max_diff": target_difficulty + difficulty_range,
+                    "target_difficulty": target_difficulty,
+                }
+
+            query = f"""
+                SELECT
+                    id, stem, options_json, difficulty, discrimination,
+                    guessing, sub_domain, item_type, stimulus,
+                    stimulus_type, hint_text, cognitive_level,
+                    estimated_time_seconds, read_aloud_enabled,
+                    allow_calculator
+                FROM baseline_items
+                WHERE domain = :domain
+                  AND sub_domain = :sub_domain
+                  AND grade_band = :grade_band
+                  AND difficulty BETWEEN :min_diff AND :max_diff
+                  {not_in_clause}
+                  AND status = 'active'
+                ORDER BY ABS(difficulty - :target_difficulty)
+                LIMIT 1
+            """
+
+            result = db.execute(text(query), params).fetchone()
 
             if result:
                 options = json.loads(result[2]) if result[2] else []
@@ -432,13 +461,22 @@ Generate ONE high-quality assessment question that:
 - Culturally responsive and inclusive
 - Accessible to neurodiverse learners
 
+# IMPORTANT: STIMULUS REQUIREMENTS
+- For READING COMPREHENSION: MUST include a story/passage (2-4 sentences) in "stimulus" field
+- The "stem" should be the QUESTION about the passage, NOT the passage itself
+- Example for reading:
+  * stimulus: "The red fox jumped over the fence. It was looking for food."
+  * stem: "What was the fox looking for?"
+- For MATH word problems: Include the problem scenario in "stimulus" if helpful
+- For other questions: Set "stimulus" to null if not needed
+
 # OUTPUT FORMAT
 Return ONLY valid JSON (no markdown, no extra text):
 
 {{
-  "stem": "Clear, focused question text",
-  "stimulus": null,
-  "stimulus_type": null,
+  "stem": "The question itself - what you're asking the student",
+  "stimulus": "The reading passage, math problem, or null",
+  "stimulus_type": "text",
   "item_type": "single_choice",
   "sub_domain": "{sub_domain}",
   "options": [
@@ -621,7 +659,10 @@ Generate the question now:"""
             db.commit()
             print(f"✓ Cached generated question: {question['id']}")
 
+            return question["id"]
+
         except Exception as e:
             db.rollback()
             print(f"⚠️ Failed to cache question: {e}")
             # Non-fatal error, question can still be used
+            return question["id"]

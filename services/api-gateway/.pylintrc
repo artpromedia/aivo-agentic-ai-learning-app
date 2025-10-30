@@ -16,6 +16,7 @@ disable=
     wrong-import-position,
     # Missing docstrings for generated files
     missing-module-docstring,
+    missing-class-docstring,
     # Format and style issues handled by other linters
     logging-fstring-interpolation,
     trailing-whitespace,
@@ -23,7 +24,11 @@ disable=
     redefined-outer-name,
     unused-argument,
     # Library stubs
-    import-outside-toplevel
+    import-outside-toplevel,
+    # Exception handling style
+    raise-missing-from,
+    # Line length handled by black/ruff
+    line-too-long
 
 [TYPECHECK]
 # Generated members for dynamic modules

@@ -217,3 +217,5 @@ export function TeacherLicenseStep({ onNext, onBack }: TeacherLicenseStepProps) 
     </form>
   );
 }
+
+

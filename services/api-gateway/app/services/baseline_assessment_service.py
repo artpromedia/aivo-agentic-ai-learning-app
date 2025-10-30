@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.baseline_question_generator import BaselineQuestionGenerator
+
 # IRT Scoring Functions (Python implementation)
 
 
@@ -232,17 +234,45 @@ class BaselineAssessmentService:
         db: Session, session_id: str, domain: str, current_theta: float, current_se: float
     ) -> Optional[Dict[str, Any]]:
         """
-        Select next item using maximum information criterion
+        Select next item using maximum information criterion.
+        If no suitable pre-existing item found, generates one dynamically
+        based on learner profile, accessibility needs, and district curriculum.
         """
-        # Get session info
+        # Get session info including learner_id
         session = db.execute(
-            text("SELECT grade_band FROM baseline_sessions WHERE id = :id"), {"id": session_id}
+            text("SELECT grade_band, learner_id FROM baseline_sessions WHERE id = :id"),
+            {"id": session_id},
         ).fetchone()
 
         if not session:
             return None
 
-        grade_band = session[0]
+        grade_band, learner_id = session[0], session[1]
+
+        # Get learner accessibility preferences
+        accessibility = db.execute(
+            text("""
+                SELECT preferences_json
+                FROM learner_accessibility_preferences
+                WHERE learner_id = :learner_id
+            """),
+            {"learner_id": learner_id},
+        ).fetchone()
+
+        accessibility_needs = None
+        if accessibility and accessibility[0]:
+            try:
+                prefs = json.loads(accessibility[0])
+                accessibility_needs = {
+                    "visual_supports": bool(prefs.get("visual_supports", False)),
+                    "audio_support": bool(prefs.get("audio_support", False)),
+                    "reading_support": bool(prefs.get("reading_support", False)),
+                    "simplified_language": bool(prefs.get("simplified_language", False)),
+                    "extra_time": bool(prefs.get("extra_time", False)),
+                    "text_to_speech": bool(prefs.get("text_to_speech", False)),
+                }
+            except json.JSONDecodeError:
+                pass  # Keep as None if JSON invalid
 
         # Get used item IDs
         used_items = db.execute(
@@ -268,25 +298,74 @@ class BaselineAssessmentService:
         """
 
         if used_item_ids:
-            placeholders = ",".join(["?" for _ in used_item_ids])
+            # Build NOT IN clause with named parameters
+            placeholders = ",".join([f":item_{i}" for i in range(len(used_item_ids))])
             query += f" AND id NOT IN ({placeholders})"
             params = {"domain": domain, "grade_band": grade_band}
-            # SQLite doesn't support named params with IN clause well, so we use positional
-            result = db.execute(
-                text(
-                    query.replace(
-                        "?",
-                        ":item_" + str(used_item_ids.index(used_item_ids[0]))
-                        if used_item_ids
-                        else "",
-                    )
-                ),
-                {**params, **{f"item_{i}": item_id for i, item_id in enumerate(used_item_ids)}},
-            ).fetchall()
+            # Add used items to params
+            for i, item_id in enumerate(used_item_ids):
+                params[f"item_{i}"] = item_id
+            result = db.execute(text(query), params).fetchall()
         else:
             result = db.execute(
                 text(query), {"domain": domain, "grade_band": grade_band}
             ).fetchall()
+
+        # If no pre-existing questions, generate a new one dynamically
+        if not result:
+            print(f"🤖 No pre-existing questions found. Generating new question for {domain}...")
+
+            # Determine sub_domain based on domain
+            sub_domain_map = {
+                "reading": ["comprehension", "vocabulary", "fluency"],
+                "math": ["number_sense", "operations", "geometry", "measurement"],
+                "science": ["physical", "life", "earth_space"],
+                "writing": ["composition", "grammar", "mechanics"],
+                "sel": ["self_awareness", "social_awareness"],
+                "speech": ["articulation", "fluency", "language"],
+            }
+
+            # Use first sub_domain for this domain
+            sub_domain = sub_domain_map.get(domain, ["general"])[0]
+
+            try:
+                # Generate question with full personalization
+                generated = BaselineQuestionGenerator.generate_question(
+                    db=db,
+                    learner_id=learner_id,
+                    domain=domain,
+                    sub_domain=sub_domain,
+                    grade_band=grade_band,
+                    target_difficulty=current_theta,  # Target current ability level
+                    current_theta=current_theta,
+                    session_id=session_id,
+                    district_curriculum=None,  # Will be fetched inside generator
+                    accessibility_needs=accessibility_needs,
+                )
+
+                # The generator saves to DB and returns validated question with 'id'
+                # Query for it to get all fields in the expected format
+                result = db.execute(
+                    text("""
+                        SELECT id, item_type, stem, stimulus, stimulus_type, options_json,
+                               difficulty, discrimination, guessing, estimated_time_seconds,
+                               cognitive_level, read_aloud_enabled, allow_calculator,
+                               domain, sub_domain, grade_band
+                        FROM baseline_items
+                        WHERE id = :item_id
+                    """),
+                    {"item_id": generated["id"]},
+                ).fetchall()
+
+                print(f"✅ Generated and cached question: {generated['id']}")
+
+            except Exception as e:
+                print(f"❌ Failed to generate question: {e}")
+                import traceback
+
+                traceback.print_exc()
+                # Return None if generation fails
+                return None
 
         if not result:
             return None
@@ -404,8 +483,9 @@ class BaselineAssessmentService:
         # Use defaults for non-existent columns
         domains_completed = []  # Track completed domains
         min_items = 5
-        max_items = 10
-        target_se = 0.3
+        max_items = 6  # Force domain switch after 6 questions
+        # Relaxed from 0.3 to allow earlier domain switch
+        target_se = 0.5
 
         item_type, item_domain, options_json, difficulty, discrimination, guessing, points = item
         options = json.loads(options_json) if options_json else []
@@ -703,7 +783,7 @@ class BaselineAssessmentService:
         result = db.execute(
             text("""
                 SELECT COUNT(*) as response_count,
-                       COALESCE(MAX(created_at), started_at) as last_activity
+                       COALESCE(MAX(r.created_at), s.started_at) as last_activity
                 FROM baseline_sessions s
                 LEFT JOIN baseline_responses r ON s.id = r.session_id
                 WHERE s.id = :session_id

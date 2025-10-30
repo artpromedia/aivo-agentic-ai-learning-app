@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BaselineAssessment } from '../components/baseline/BaselineAssessment';
 import type { BaselineSession, GradeBand } from '../types/baseline';
 
@@ -82,8 +82,34 @@ export function OnboardingAssessment() {
         console.log('🔑 Auth token source:', searchParams.get('token') ? 'URL' : 'localStorage');
         console.log('='.repeat(80));
         
-        if (authToken) {
-          // Fetch learner details from backend
+        // Check if this is a temp learner (starts with 'temp-')
+        const isTempLearner = learnerIdParam.startsWith('temp-');
+        console.log('🔍 Is temp learner:', isTempLearner);
+        
+        if (isTempLearner) {
+          // For temp learners, skip API call and use default grade band
+          console.log('🔄 Temp learner detected - using default grade band K-5');
+          setGradeBand('K-5');
+          
+          // Set up basic session
+          localStorage.setItem('user_role', 'learner');
+          localStorage.setItem('user_id', learnerIdParam);
+          if (authToken) {
+            localStorage.setItem('access_token', authToken);
+          }
+          
+          const learnerUser = {
+            id: learnerIdParam,
+            email: `learner_${learnerIdParam}@temp.local`,
+            firstName: 'New',
+            lastName: 'Learner',
+            role: 'learner',
+            isActive: true
+          };
+          localStorage.setItem('user', JSON.stringify(learnerUser));
+          localStorage.setItem('needs_assessment', 'true');
+        } else if (authToken) {
+          // Fetch learner details from backend for registered learners
           console.log('📡 Fetching learner data from API...');
           const response = await fetch(`http://localhost:9000/api/v1/learners/${learnerIdParam}`, {
             headers: {
@@ -192,7 +218,7 @@ export function OnboardingAssessment() {
   }
 
   // Handle assessment completion
-  const handleComplete = (results: BaselineSession) => {
+  const handleComplete = async (results: BaselineSession) => {
     console.log('✅ Baseline assessment completed:', results);
     
     // Store results
@@ -214,9 +240,42 @@ export function OnboardingAssessment() {
     const returnTo = searchParams.get('return_to');
     
     if (returnTo === 'model_cloning') {
-      // Stay in learner app and go to Responsible AI model cloning
-      console.log('🧬 Assessment complete! Moving to Responsible AI model cloning...');
-      navigate('/cloning');
+      // Trigger brain cloning immediately after assessment
+      console.log('🧬 Assessment complete! Triggering brain cloning...');
+      
+      try {
+        const token = localStorage.getItem('access_token');
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
+        
+        // Call personalized brain cloning endpoint
+        const cloneResponse = await fetch(`${API_URL}/api/v1/personalized-brain/clone`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: JSON.stringify({
+            learner_id: results.learnerId,
+          }),
+        });
+        
+        if (cloneResponse.ok) {
+          const cloneData = await cloneResponse.json();
+          console.log('✅ Brain cloned successfully:', cloneData);
+          localStorage.setItem('brain_instance_id', cloneData.brain_instance_id);
+          
+          // Navigate to model cloning page (shows cloning animation)
+          navigate('/cloning');
+        } else {
+          console.error('❌ Failed to clone brain:', await cloneResponse.text());
+          // Still navigate to cloning page - it can handle retries
+          navigate('/cloning');
+        }
+      } catch (error) {
+        console.error('❌ Error triggering brain clone:', error);
+        // Still navigate to cloning page - it can handle retries
+        navigate('/cloning');
+      }
     } else {
       // Show results page
       navigate(`/baseline/results/${results.id}`);
@@ -234,3 +293,5 @@ export function OnboardingAssessment() {
     </div>
   );
 }
+
+
