@@ -3,12 +3,15 @@ export type UserRole = 'admin' | 'teacher' | 'parent' | 'learner' | 'district-ad
 
 export type Role = 
   | 'super_admin'
+  | 'global_admin' // Alias for super_admin
   | 'district_admin'
   | 'school_admin'
   | 'teacher'
   | 'parent'
   | 'learner'
-  | 'support_staff';
+  | 'support_staff'
+  | 'tech_support'
+  | 'legal_compliance';
 
 export interface RoleDefinition {
   name: string;
@@ -19,12 +22,15 @@ export interface RoleDefinition {
 
 export const ROLES: Role[] = [
   'super_admin',
+  'global_admin',
   'district_admin',
   'school_admin',
   'teacher',
   'parent',
   'learner',
   'support_staff',
+  'tech_support',
+  'legal_compliance',
 ];
 
 export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
@@ -33,6 +39,12 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
     hierarchy_level: 100,
     permissions: ['*'],
     description: 'Full system access',
+  },
+  global_admin: {
+    name: 'Global Administrator',
+    hierarchy_level: 100,
+    permissions: ['*'],
+    description: 'Full system access (alias for super_admin)',
   },
   district_admin: {
     name: 'District Administrator',
@@ -85,6 +97,29 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
     hierarchy_level: 30,
     permissions: ['view_students', 'provide_support', 'view_iep'],
     description: 'Provides specialized support',
+  },
+  tech_support: {
+    name: 'Technical Support',
+    hierarchy_level: 70,
+    permissions: [
+      'manage_devices',
+      'view_system_health',
+      'manage_integrations',
+      'view_api_keys',
+      'troubleshoot_issues',
+    ],
+    description: 'Provides technical support and manages system infrastructure',
+  },
+  legal_compliance: {
+    name: 'Legal & Compliance',
+    hierarchy_level: 90,
+    permissions: [
+      'view_audit_log',
+      'manage_privacy_settings',
+      'view_all_data',
+      'export_compliance_reports',
+    ],
+    description: 'Manages legal compliance, privacy, and audit requirements',
   },
 };
 
