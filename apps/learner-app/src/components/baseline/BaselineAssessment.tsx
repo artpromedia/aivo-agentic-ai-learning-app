@@ -1,19 +1,26 @@
 /**
  * Enhanced Baseline Assessment Container
  * Main component with accessibility support and 5 questions per domain
+ * Connected to AI-powered backend for dynamic question generation
  */
 import { Settings } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { selectNextItem } from '../../services/baseline/adaptiveSelection';
-import { estimateAbilityMLE } from '../../services/baseline/irtScoring';
-import type { AccessibilityPreferences, EngagementMetrics } from '../../types/accessibility';
+import type {
+    EngagementMetrics as APIEngagementMetrics,
+    StartSessionRequest
+} from '../../services/baseline/api';
+import { BaselineAPI } from '../../services/baseline/api';
+import type {
+    AccessibilityPreferences,
+    EngagementMetrics,
+} from '../../types/accessibility';
 import { DEFAULT_ACCESSIBILITY_PREFS } from '../../types/accessibility';
 import type {
     BaselineItem,
     BaselineSession,
     Domain,
     GradeBand,
-    ItemResponse
+    ItemResponse,
 } from '../../types/baseline';
 import { AccessibilityPanel } from './AccessibilityPanel';
 import { AdaptiveProgress } from './AdaptiveProgress';
@@ -63,18 +70,22 @@ export function BaselineAssessment({
     responses: [],
     totalTimeMs: 0,
     audioRecordingEnabled: false, // Will be enabled if needed
-    textToSpeechEnabled: accessibilityPrefs.textToSpeech
+    textToSpeechEnabled: accessibilityPrefs.textToSpeech,
   });
-  
+
   const [currentDomain, setCurrentDomain] = useState<Domain>('reading');
-  const [itemsAnsweredPerDomain, setItemsAnsweredPerDomain] = useState<Record<Domain, number>>(
-    Object.fromEntries(DOMAINS.map(d => [d, 0])) as Record<Domain, number>
-  );
+  const [itemsAnsweredPerDomain, setItemsAnsweredPerDomain] = useState<
+    Record<Domain, number>
+  >(Object.fromEntries(DOMAINS.map((d) => [d, 0])) as Record<Domain, number>);
   const [currentItem, setCurrentItem] = useState<BaselineItem | null>(null);
-  const [availableItems, setAvailableItems] = useState<BaselineItem[]>([]);
   const [showTransition, setShowTransition] = useState(false);
   const [showBreak, setShowBreak] = useState(false);
   const [showAccessibilityPanel, setShowAccessibilityPanel] = useState(false);
+
+  // API loading and error states
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Engagement tracking
   const [engagementMetrics, setEngagementMetrics] = useState<EngagementMetrics>({
@@ -89,205 +100,114 @@ export function BaselineAssessment({
     confidenceRatings: []
   });
 
-  const questionStartTimeRef = useRef(Date.now());
   const sessionStartTimeRef = useRef(Date.now());
-  
-  // Load items for current domain (mock data - will be replaced with API call)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AI-POWERED BACKEND INITIALIZATION
+  // Replaces mock data with real AI-generated questions
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Initialize session with backend AI question generation
+   * Uses multi-provider AI (OpenAI, Anthropic, Gemini)
+   */
   useEffect(() => {
-    // TODO: Fetch items from API
-    // For now, we'll use mock data
-    const mockItems: BaselineItem[] = [
-      // Reading items
-      {
-        id: 'reading-1',
-        domain: 'reading',
-        subDomain: 'comprehension',
-        gradeBand,
-        type: 'single_choice',
-        stem: 'What is the main idea of the passage?',
-        stimulus: 'The sun provides light and warmth to Earth. Plants use sunlight to make food through photosynthesis. Animals depend on plants for energy.',
-        stimulusType: 'text',
-        options: [
-          { id: 'a', label: 'The sun is hot', correctness: 0 },
-          { id: 'b', label: 'Living things depend on the sun for energy', correctness: 1 },
-          { id: 'c', label: 'Plants are green', correctness: 0 },
-          { id: 'd', label: 'Animals eat plants', correctness: 0 }
-        ],
-        parameters: {
-          difficulty: 0.0, // b parameter
-          discrimination: 1.2, // a parameter
-          guessing: 0.25, // c parameter
-          estimatedTime: 45,
-          cognitiveLevel: 'understand'
-        },
-        points: 1,
-        readAloud: true,
-        allowCalculator: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: ['baseline', 'reading']
-      },
-      // Math items
-      {
-        id: 'math-1',
-        domain: 'math',
-        subDomain: 'number_sense',
-        gradeBand,
-        type: 'single_choice',
-        stem: 'What is 15 + 28?',
-        options: [
-          { id: 'a', label: '33', correctness: 0 },
-          { id: 'b', label: '43', correctness: 1 },
-          { id: 'c', label: '42', correctness: 0 },
-          { id: 'd', label: '44', correctness: 0 }
-        ],
-        parameters: {
-          difficulty: -0.5,
-          discrimination: 1.5,
-          guessing: 0.25,
-          estimatedTime: 30,
-          cognitiveLevel: 'apply'
-        },
-        points: 1,
-        readAloud: true,
-        allowCalculator: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: ['baseline', 'math']
-      },
-      // Science items
-      {
-        id: 'science-1',
-        domain: 'science',
-        subDomain: 'life_science',
-        gradeBand,
-        type: 'single_choice',
-        stem: 'What do plants need to grow?',
-        options: [
-          { id: 'a', label: 'Only water', correctness: 0 },
-          { id: 'b', label: 'Sunlight, water, and air', correctness: 1 },
-          { id: 'c', label: 'Only sunlight', correctness: 0 },
-          { id: 'd', label: 'Only soil', correctness: 0 }
-        ],
-        parameters: {
-          difficulty: -0.8,
-          discrimination: 1.3,
-          guessing: 0.25,
-          estimatedTime: 35,
-          cognitiveLevel: 'remember'
-        },
-        points: 1,
-        readAloud: true,
-        allowCalculator: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: ['baseline', 'science']
-      },
-      // Writing items
-      {
-        id: 'writing-1',
-        domain: 'writing',
-        subDomain: 'grammar',
-        gradeBand,
-        type: 'single_choice',
-        stem: 'Which sentence is correct?',
-        options: [
-          { id: 'a', label: 'She go to school', correctness: 0 },
-          { id: 'b', label: 'She goes to school', correctness: 1 },
-          { id: 'c', label: 'She going to school', correctness: 0 },
-          { id: 'd', label: 'She goed to school', correctness: 0 }
-        ],
-        parameters: {
-          difficulty: -0.3,
-          discrimination: 1.4,
-          guessing: 0.25,
-          estimatedTime: 40,
-          cognitiveLevel: 'apply'
-        },
-        points: 1,
-        readAloud: true,
-        allowCalculator: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: ['baseline', 'writing']
-      },
-      // SEL items
-      {
-        id: 'sel-1',
-        domain: 'sel',
-        subDomain: 'self_awareness',
-        gradeBand,
-        type: 'single_choice',
-        stem: 'How do you feel when you help a friend?',
-        options: [
-          { id: 'a', label: 'Sad', correctness: 0 },
-          { id: 'b', label: 'Happy and proud', correctness: 1 },
-          { id: 'c', label: 'Angry', correctness: 0 },
-          { id: 'd', label: 'Scared', correctness: 0 }
-        ],
-        parameters: {
-          difficulty: -1.0,
-          discrimination: 1.0,
-          guessing: 0.25,
-          estimatedTime: 25,
-          cognitiveLevel: 'understand'
-        },
-        points: 1,
-        readAloud: true,
-        allowCalculator: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: ['baseline', 'sel']
+    const initializeSession = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const request: StartSessionRequest = {
+          learner_id: learnerId,
+          grade_band: gradeBand,
+          audio_enabled: false,
+          tts_enabled: accessibilityPrefs.textToSpeech,
+          accessibility_preferences: {
+            fontSize: accessibilityPrefs.fontSize,
+            fontFamily: accessibilityPrefs.fontFamily,
+            highContrast: accessibilityPrefs.highContrast,
+            colorScheme: accessibilityPrefs.colorScheme,
+            reduceAnimations: accessibilityPrefs.reduceAnimations,
+            textToSpeech: accessibilityPrefs.textToSpeech,
+            ttsVoice: accessibilityPrefs.ttsVoice,
+            ttsSpeed: accessibilityPrefs.ttsSpeed,
+            soundEffects: accessibilityPrefs.soundEffects,
+            showTimer: accessibilityPrefs.showTimer,
+            autoAdvance: accessibilityPrefs.autoAdvance,
+            keyboardNav: accessibilityPrefs.keyboardNav,
+            breakReminders: accessibilityPrefs.breakReminders,
+            breakInterval: accessibilityPrefs.breakInterval,
+            focusMode: accessibilityPrefs.focusMode,
+            showHints: accessibilityPrefs.showHints,
+            showConfidenceSlider: accessibilityPrefs.showConfidenceSlider,
+            showEncouragement: accessibilityPrefs.showEncouragement,
+          },
+        };
+
+        const response = await BaselineAPI.startSession(request);
+
+        // Store session ID
+        setSessionId(response.session_id);
+
+        // Update session with backend response
+        setSession((prev) => ({
+          ...prev,
+          id: response.session_id,
+          currentDomain: response.current_domain as Domain,
+          currentAbilityEstimates: response.ability_estimates,
+          standardErrors: response.standard_errors,
+        }));
+
+        // Convert API item to BaselineItem format
+        const firstItem: BaselineItem = {
+          id: response.first_item.id,
+          domain: response.first_item.domain as Domain,
+          subDomain: response.first_item.subDomain as import('../../types/baseline').SubDomain,
+          gradeBand,
+          type: response.first_item.type as import('../../types/baseline').ItemType,
+          stem: response.first_item.stem,
+          stimulus: response.first_item.stimulus,
+          stimulusType: (response.first_item.stimulusType as 'text' | 'image') || 'text',
+          options: Array.isArray(response.first_item.options)
+            ? response.first_item.options.map((opt) => ({
+                id: opt.id,
+                label: opt.label,
+                correctness: opt.correct ? 1 : 0,
+              }))
+            : [],
+          parameters: {
+            difficulty: response.first_item.parameters.difficulty,
+            discrimination: response.first_item.parameters.discrimination,
+            guessing: response.first_item.parameters.guessing,
+            estimatedTime: 60,
+            cognitiveLevel: 'apply',
+          },
+          points: 1,
+          readAloud: response.first_item.readAloud,
+          allowCalculator: response.first_item.allowCalculator,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          tags: ['baseline', response.first_item.domain],
+        };
+
+        setCurrentItem(firstItem);
+        setCurrentDomain(response.current_domain as Domain);
+      } catch (err) {
+        console.error('Failed to initialize session:', err);
+        setError(
+          err instanceof Error ? err.message : 'Failed to start assessment'
+        );
+      } finally {
+        setIsLoading(false);
       }
-      // TODO: Add more items for all domains in production
-    ];
-    
-    setAvailableItems(mockItems);
-  }, [gradeBand]);
-  
-  // Select first item or next item after response
-  useEffect(() => {
-    if (availableItems.length === 0 || currentItem !== null) return;
-    
-    const domainItems = availableItems.filter(item => item.domain === currentDomain);
-    
-    if (domainItems.length === 0) {
-      // No more items for this domain - shouldn't happen with our fixed 5 questions per domain
-      console.warn('No items available for domain:', currentDomain);
-      return;
-    }
-    
-    // Check if we've reached the limit for this domain (5 questions)
-    if (itemsAnsweredPerDomain[currentDomain] >= ITEMS_PER_DOMAIN) {
-      // Domain complete, should have triggered transition already
-      console.log('Domain complete, waiting for transition');
-      return;
-    }
-    
-    // Get current ability estimate for domain
-    const currentTheta = session.currentAbilityEstimates[currentDomain] ?? 0;
-    const currentSE = session.standardErrors[currentDomain] ?? 1;
-    
-    // Get responses for this domain
-    const domainResponses = session.responses.filter(r => r.domain === currentDomain);
-    
-    // Select next item using adaptive algorithm
-    const nextItem = selectNextItem({
-      domain: currentDomain,
-      currentTheta: currentTheta,
-      standardError: currentSE,
-      responsesInDomain: domainResponses,
-      availableItems: domainItems,
-      targetAccuracy: 0.7,
-      contentBalancing: true,
-      exposureControl: false
-    });
-    
-    if (nextItem) {
-      setCurrentItem(nextItem);
-      questionStartTimeRef.current = Date.now();
-    }
-  }, [availableItems, currentItem, currentDomain, itemsAnsweredPerDomain, session.currentAbilityEstimates, session.standardErrors, session.responses]); // eslint-disable-line react-hooks/exhaustive-deps
+    };
+
+    initializeSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  // NOTE: Mock data loading removed - now using real AI backend
+  // Adaptive item selection now handled by backend AI system
   
   // Monitor focus (page visibility)
   useEffect(() => {
@@ -306,128 +226,168 @@ export function BaselineAssessment({
   }, []);
   
   // Handle item response submission
-  const handleItemSubmit = (response: Partial<ItemResponse>) => {
-    if (!currentItem) return;
+  const handleItemSubmit = async (response: Partial<ItemResponse>) => {
+    if (!currentItem || !sessionId) return;
     
-    // Calculate correctness score
-    let score = 0;
-    if (currentItem.type === 'single_choice' || currentItem.type === 'yes_no') {
-      const selectedOption = currentItem.options?.find(opt => 
-        response.selectedOptions?.includes(opt.id)
-      );
-      score = selectedOption?.correctness ?? 0;
-    } else if (currentItem.type === 'multi_select' && currentItem.options) {
-      const correctCount = response.selectedOptions?.filter(id =>
-        currentItem.options?.find(opt => opt.id === id && opt.correctness === 1)
-      ).length ?? 0;
-      const incorrectCount = (response.selectedOptions?.length ?? 0) - correctCount;
-      score = Math.max(0, (correctCount - incorrectCount) / currentItem.options.length);
-    }
+    setIsLoading(true);
     
-    // Create complete response object
-    const completeResponse: ItemResponse = {
-      ...response as ItemResponse,
-      score
-    };
-    
-    // Update session with new response
-    const updatedResponses = [...session.responses, completeResponse];
-    
-    // Update items answered for current domain
-    const newItemsAnswered = itemsAnsweredPerDomain[currentDomain] + 1;
-    setItemsAnsweredPerDomain(prev => ({
-      ...prev,
-      [currentDomain]: newItemsAnswered
-    }));
-    
-    // Re-estimate ability for this domain
-    const domainResponses = updatedResponses.filter(r => r.domain === currentDomain);
-    const items = domainResponses.map(r => 
-      availableItems.find(item => item.id === r.itemId)!
-    );
-    
-    // Convert to format expected by estimateAbilityMLE
-    const irtResponses = domainResponses.map((r, i) => ({
-      correct: r.score > 0.5,
-      item: {
-        a: items[i].parameters.discrimination,
-        b: items[i].parameters.difficulty,
-        c: items[i].parameters.guessing || 0.25
-      }
-    }));
-    
-    const { theta, standardError } = estimateAbilityMLE(irtResponses);
-    
-    // Update session
-    setSession(prev => ({
-      ...prev,
-      responses: updatedResponses,
-      itemsAnswered: prev.itemsAnswered + 1,
-      currentAbilityEstimates: {
-        ...prev.currentAbilityEstimates,
-        [currentDomain]: theta
-      },
-      standardErrors: {
-        ...prev.standardErrors,
-        [currentDomain]: standardError
-      }
-    }));
-    
-    // Update engagement metrics
-    const responseTime = (response.timeSubmitted!.getTime() - response.timeStarted!.getTime()) / 1000;
-    setEngagementMetrics(prev => {
-      const newAvgTime = (prev.avgResponseTime * prev.hesitationIndicators + responseTime) / (prev.hesitationIndicators + 1);
-      // Note: confidenceRatings would come from separate confidence slider feature
-      const newConfidenceRatings = prev.confidenceRatings;
+    try {
+      // Calculate response time in seconds
+      const responseTime = (response.timeSubmitted!.getTime() - response.timeStarted!.getTime()) / 1000;
       
-      return {
+      // Update local engagement metrics for this response
+      setEngagementMetrics(prev => ({
         ...prev,
-        avgResponseTime: newAvgTime,
+        avgResponseTime: (prev.avgResponseTime * session.itemsAnswered + responseTime) / (session.itemsAnswered + 1),
         hesitationIndicators: prev.hesitationIndicators + (response.hesitationCount ?? 0),
         consecutiveQuickResponses: responseTime < 5 ? prev.consecutiveQuickResponses + 1 : 0,
         consecutiveSlowResponses: responseTime > 60 ? prev.consecutiveSlowResponses + 1 : 0,
         skippedItems: prev.skippedItems + (response.skipped ? 1 : 0),
         hintsUsed: prev.hintsUsed + (response.usedHint ? 1 : 0),
-        confidenceRatings: newConfidenceRatings
-      };
-    });
-    
-    // Check if domain is complete (5 questions answered)
-    if (newItemsAnswered >= ITEMS_PER_DOMAIN) {
-      // Mark domain as complete and transition to next
-      const completedDomains = [...session.domainsCompleted, currentDomain];
-      const nextDomainIndex = DOMAINS.findIndex(d => d === currentDomain) + 1;
+      }));
       
-      if (nextDomainIndex < DOMAINS.length) {
-        // Move to next domain
-        const nextDomain = DOMAINS[nextDomainIndex];
-        setCurrentDomain(nextDomain);
-        setSession(prev => ({
-          ...prev,
-          domainsCompleted: completedDomains,
-          currentDomain: nextDomain
-        }));
-        setShowTransition(true);
-      } else {
-        // Assessment complete!
+      // Convert to API engagement metrics format
+      const apiEngagementMetrics: APIEngagementMetrics = {
+        hesitationCount: response.hesitationCount ?? 0,
+        usedHint: response.usedHint ?? false,
+        usedReadAloud: accessibilityPrefs.textToSpeech,
+        confidenceLevel: undefined, // Can add confidence slider in future
+        focusLevel: engagementMetrics.focusLevel,
+        timeSpentMs: responseTime * 1000,
+        deviceType: navigator.userAgent,
+      };
+      
+      // Submit response to backend and get next item
+      const submitResponse = await BaselineAPI.submitResponse({
+        session_id: sessionId,
+        item_id: currentItem.id,
+        response: {
+          selected_options: response.selectedOptions,
+          constructed_response: response.constructedResponse,
+        },
+        engagement_metrics: apiEngagementMetrics,
+        time_started: response.timeStarted!.toISOString(),
+        time_submitted: response.timeSubmitted!.toISOString(),
+      });
+      
+      // Update items answered for current domain
+      const newItemsAnswered = itemsAnsweredPerDomain[currentDomain] + 1;
+      setItemsAnsweredPerDomain(prev => ({
+        ...prev,
+        [currentDomain]: newItemsAnswered
+      }));
+      
+      // Update session with new state from backend
+      setSession(prev => ({
+        ...prev,
+        itemsAnswered: prev.itemsAnswered + 1,
+        currentAbilityEstimates: {
+          ...prev.currentAbilityEstimates,
+          [currentDomain]: submitResponse.updated_theta
+        },
+        standardErrors: {
+          ...prev.standardErrors,
+          [currentDomain]: submitResponse.updated_se
+        },
+        responses: [...prev.responses, {
+          ...response as ItemResponse,
+          score: submitResponse.score
+        }],
+      }));
+      
+      // Check if assessment is complete
+      if (submitResponse.assessment_complete) {
         const finalSession: BaselineSession = {
           ...session,
-          domainsCompleted: completedDomains,
           status: 'completed',
           completedAt: new Date(),
           totalTimeMs: Date.now() - sessionStartTimeRef.current
         };
         onComplete(finalSession);
+        return;
       }
-    } else {
-      // Check if break is needed (every 10 questions if enabled)
-      if (accessibilityPrefs.breakReminders && session.itemsAnswered % 10 === 0 && session.itemsAnswered > 0) {
-        setShowBreak(true);
+      
+      // Check if should switch domains
+      if (submitResponse.should_stop_domain && submitResponse.next_domain) {
+        const completedDomains = [...session.domainsCompleted, currentDomain];
+        setCurrentDomain(submitResponse.next_domain as Domain);
+        setSession(prev => ({
+          ...prev,
+          domainsCompleted: completedDomains,
+          currentDomain: submitResponse.next_domain as Domain
+        }));
+        setShowTransition(true);
+      } else if (submitResponse.should_suggest_break) {
+        // Check if break is needed
+        if (accessibilityPrefs.breakReminders) {
+          setShowBreak(true);
+        }
       }
+      
+      // Convert next item from API to BaselineItem format
+      if (submitResponse.next_item) {
+        console.log('📝 Next item received:', submitResponse.next_item.id, submitResponse.next_item.domain);
+        
+        const nextItem: BaselineItem = {
+          id: submitResponse.next_item.id,
+          domain: submitResponse.next_item.domain as Domain,
+          subDomain: submitResponse.next_item.subDomain as import('../../types/baseline').SubDomain,
+          gradeBand,
+          type: submitResponse.next_item.type as import('../../types/baseline').ItemType,
+          stem: submitResponse.next_item.stem,
+          stimulus: submitResponse.next_item.stimulus,
+          stimulusType: (submitResponse.next_item.stimulusType as 'text' | 'image') || 'text',
+          options: Array.isArray(submitResponse.next_item.options)
+            ? submitResponse.next_item.options.map((opt) => ({
+                id: opt.id,
+                label: opt.label,
+                correctness: opt.correct ? 1 : 0,
+              }))
+            : [],
+          parameters: {
+            difficulty: submitResponse.next_item.parameters.difficulty,
+            discrimination: submitResponse.next_item.parameters.discrimination,
+            guessing: submitResponse.next_item.parameters.guessing,
+            estimatedTime: 60,
+            cognitiveLevel: 'apply',
+          },
+          points: 1,
+          readAloud: submitResponse.next_item.readAloud,
+          allowCalculator: submitResponse.next_item.allowCalculator,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          tags: ['baseline', submitResponse.next_item.domain],
+        };
+        
+        // Set next item and clear loading state
+        setCurrentItem(nextItem);
+        setIsLoading(false);
+      } else {
+        console.log('✅ No next item - assessment complete or domain finished');
+        
+        // If no next item but assessment not marked complete, treat as completion
+        if (!submitResponse.assessment_complete) {
+          console.warn('⚠️ No next item but assessment_complete=false. Marking as complete.');
+          const finalSession: BaselineSession = {
+            ...session,
+            status: 'completed',
+            completedAt: new Date(),
+            totalTimeMs: Date.now() - sessionStartTimeRef.current
+          };
+          setIsLoading(false);
+          onComplete(finalSession);
+        } else {
+          setCurrentItem(null);
+          setIsLoading(false);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to submit response:', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to submit response'
+      );
+      setIsLoading(false);
     }
-    
-    // Clear current item to trigger next item selection
-    setCurrentItem(null);
   };
 
   // Show loading if no item selected yet
@@ -446,6 +406,71 @@ export function BaselineAssessment({
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-2xl">
+                🧠
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium text-gray-900">
+                Generating your personalized question...
+              </p>
+              <p className="text-sm text-gray-600">
+                Our AI is creating a question just for your level ✨
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6 max-w-md">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="h-6 w-6 text-red-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Oops! Something went wrong
+                  </h3>
+                  <p className="mt-2 text-sm text-red-700">{error}</p>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      setIsLoading(true);
+                      // Retry initialization
+                      window.location.reload();
+                    }}
+                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content - Only show when not loading and no error */}
+        {!isLoading && !error && (
+          <>
         {/* Accessibility Settings Button */}
         <div className="flex justify-end">
           <button
@@ -507,6 +532,8 @@ export function BaselineAssessment({
             isOpen={showAccessibilityPanel}
             onToggle={() => setShowAccessibilityPanel(false)}
           />
+        )}
+          </>
         )}
       </div>
     </div>

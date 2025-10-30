@@ -2,9 +2,13 @@
 Baseline Assessment API Router - Enhanced for Neurodiverse Support
 Endpoints for adaptive baseline assessment with accessibility features
 """
+# pylint: disable=line-too-long, import-error, no-name-in-module
+# pylint: disable=raise-missing-from, logging-fstring-interpolation
+# pylint: disable=import-outside-toplevel, missing-class-docstring
+# flake8: noqa: E501
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -56,6 +60,8 @@ class StartSessionRequest(BaseModel):
 class ItemWithAccessibility(BaseModel):
     """Enhanced item response with accessibility metadata"""
 
+    model_config = {"extra": "allow"}  # Allow extra fields for flexibility
+
     id: str
     domain: str
     subDomain: str
@@ -64,7 +70,9 @@ class ItemWithAccessibility(BaseModel):
     stimulus: Optional[str] = None
     stimulusType: Optional[str] = None
     stimulusUrl: Optional[str] = None
-    options: Optional[List[Dict]] = None
+    # Options can be either a list (multiple choice) or dict (fluency)
+    # Try Dict first to prevent list validation error on fluency questions
+    options: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None
     parameters: Dict[str, Any]
     readAloud: bool
     allowCalculator: bool
