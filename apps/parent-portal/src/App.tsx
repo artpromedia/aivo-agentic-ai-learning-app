@@ -1,23 +1,24 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from '@aivo/auth';
-import Login from './pages/Login';
-import Unauthorized from './pages/Unauthorized';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+import { AIBrainDashboard } from './pages/AIBrainDashboard';
+import { ChildResultsPage } from './pages/baseline/ChildResultsPage';
+import { BaselineResults } from './pages/BaselineResults';
+import { Billing } from './pages/Billing';
 import { Dashboard } from './pages/Dashboard';
-import { Onboarding } from './pages/onboarding/Onboarding';
-import { ParentSignup } from './pages/ParentSignup';
-import { Progress } from './pages/Progress';
-import { SubjectProgress } from './pages/SubjectProgress';
 import { Devices } from './pages/Devices';
 import { Invitations } from './pages/Invitations';
-import { BaselineResults } from './pages/BaselineResults';
-import { ChildResultsPage } from './pages/baseline/ChildResultsPage';
-import { Trial } from './pages/Trial';
-import { Billing } from './pages/Billing';
-import ModelCloningTestPage from './pages/ModelCloningTestPage';
+import Login from './pages/Login';
 import { ModelCloning } from './pages/ModelCloning';
+import ModelCloningTestPage from './pages/ModelCloningTestPage';
+import { Onboarding } from './pages/onboarding/Onboarding';
+import { ParentSignup } from './pages/ParentSignup';
+import Profile from './pages/Profile';
+import { Progress } from './pages/Progress';
+import Settings from './pages/Settings';
+import { SubjectProgress } from './pages/SubjectProgress';
+import { Trial } from './pages/Trial';
+import Unauthorized from './pages/Unauthorized';
 
 function App() {
   return (
@@ -55,6 +56,8 @@ function App() {
             <Route path="trial" element={<Trial />} />
             <Route path="billing" element={<Billing />} />
             <Route path="model-cloning-test" element={<ModelCloningTestPage />} />
+            <Route path="ai-brain" element={<AIBrainDashboard />} />
+            <Route path="ai-brain/:brainId" element={<AIBrainDashboard />} />
           </Route>
         </Routes>
       </BrowserRouter>

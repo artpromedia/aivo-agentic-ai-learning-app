@@ -5,19 +5,20 @@ Tests Goal Planner, BrainManager, and ProactiveAgent working together
 
 import asyncio
 import json
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
+from app.core.brain_manager import BrainManager
 from app.core.goal_planner import (
-    GoalPlanner,
-    LearningGoal,
-    LearnerState,
-    Milestone,
     ActionPlan,
+    GoalPlanner,
+    LearnerState,
+    LearningGoal,
+    Milestone,
     ProgressEvaluation,
 )
-from app.core.brain_manager import BrainManager
 from app.core.proactive_agent import ProactiveAgent
 
 
@@ -53,9 +54,7 @@ def mock_sessions():
                 "hints_used": 1 if i % 4 == 0 else 0,
                 "duration_minutes": 15 + (i % 10),
                 "completed": True,
-                "created_at": (
-                    datetime.utcnow() - timedelta(days=i)
-                ).isoformat(),
+                "created_at": (datetime.utcnow() - timedelta(days=i)).isoformat(),
             }
         )
     return sessions
@@ -126,9 +125,7 @@ class TestGoalPlanner:
                             content=json.dumps(
                                 {
                                     "strengths": ["Visual learner", "Persistent"],
-                                    "recommended_focus": [
-                                        "Reading comprehension"
-                                    ],
+                                    "recommended_focus": ["Reading comprehension"],
                                     "obstacles": ["Attention span"],
                                 }
                             )
@@ -187,9 +184,7 @@ class TestGoalPlanner:
             recommended_focus=["Reading comprehension"],
             current_obstacles=["Attention span"],
             regulation_needs={"needs_frequent_breaks": True},
-            diagnosis_considerations={
-                "ADHD": {"milestone_duration": "10-15 minutes"}
-            },
+            diagnosis_considerations={"ADHD": {"milestone_duration": "10-15 minutes"}},
         )
 
         # Mock AI response
@@ -218,21 +213,16 @@ class TestGoalPlanner:
                                                 "Think-alouds",
                                             ],
                                             "diagnosis_adaptations": {
-                                                "ADHD": {
-                                                    "milestone_duration": "10-15 min"
-                                                }
+                                                "ADHD": {"milestone_duration": "10-15 min"}
                                             },
                                             "milestones": [
                                                 {
                                                     "order": 1,
                                                     "description": "Identify main idea",
                                                     "target_date": (
-                                                        datetime.utcnow()
-                                                        + timedelta(weeks=1)
+                                                        datetime.utcnow() + timedelta(weeks=1)
                                                     ).isoformat(),
-                                                    "success_criteria": [
-                                                        "80% accuracy"
-                                                    ],
+                                                    "success_criteria": ["80% accuracy"],
                                                     "verification_method": "Quiz",
                                                 }
                                             ],
@@ -310,15 +300,9 @@ class TestGoalPlanner:
                                                 "day": 1,
                                                 "title": "Main Idea Practice",
                                                 "duration_minutes": 15,
-                                                "materials_needed": [
-                                                    "Worksheet"
-                                                ],
-                                                "step_by_step": [
-                                                    "Read passage"
-                                                ],
-                                                "success_criteria": [
-                                                    "80% accuracy"
-                                                ],
+                                                "materials_needed": ["Worksheet"],
+                                                "step_by_step": ["Read passage"],
+                                                "success_criteria": ["80% accuracy"],
                                                 "adaptation_if_struggling": "Simplify",
                                                 "extension_if_excelling": "Extend",
                                                 "parent_guidance": "Support",
@@ -344,9 +328,7 @@ class TestGoalPlanner:
                 ]
             ),
         ):
-            plan = await planner.create_action_plan(
-                brain=mock_brain, goal=goal, db=mock_db
-            )
+            plan = await planner.create_action_plan(brain=mock_brain, goal=goal, db=mock_db)
 
         # Verify action plan
         assert isinstance(plan, ActionPlan)
@@ -367,7 +349,9 @@ class TestBrainManagerIntegration:
 
         # Mock brain retrieval
         with patch.object(
-            manager, "_get_cached_brain", return_value=Mock(
+            manager,
+            "_get_cached_brain",
+            return_value=Mock(
                 brain_id="brain_test123",
                 learner_id="learner_test123",
                 grade_level="3",
@@ -375,7 +359,7 @@ class TestBrainManagerIntegration:
                 learning_style="visual",
                 adaptation_context={},
                 metrics=Mock(total_interactions=50),
-            )
+            ),
         ):
             # Mock goal planner methods
             with patch.object(
@@ -418,9 +402,7 @@ class TestBrainManagerIntegration:
                             milestones=[],
                             strategies=[],
                             diagnosis_adaptations={},
-                            target_date=(
-                                datetime.utcnow() + timedelta(weeks=2)
-                            ).isoformat(),
+                            target_date=(datetime.utcnow() + timedelta(weeks=2)).isoformat(),
                             confidence_score=0.8,
                             reasoning="Test",
                         )
@@ -555,9 +537,7 @@ async def test_full_agentic_workflow(
     # Step 1: Goal setting via BrainManager
     manager = BrainManager()
 
-    with patch.object(
-        manager, "_get_cached_brain", return_value=mock_brain
-    ):
+    with patch.object(manager, "_get_cached_brain", return_value=mock_brain):
         with patch.object(
             manager.goal_planner.ai_client,
             "chat_completion",

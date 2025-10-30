@@ -1,15 +1,16 @@
 """
 AIVO API Gateway - Main Application Entry Point
 """
-from contextlib import asynccontextmanager
+
 import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from app.api.v1 import api_router
 from app.core.config import settings
@@ -18,7 +19,7 @@ from app.core.database import Base, engine
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -29,18 +30,39 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting AIVO API Gateway...")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'configured'}")
-    
+    logger.info(
+        f"Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'configured'}"
+    )
+
     # Create database tables
     # In production, use Alembic migrations instead
-    if settings.ENVIRONMENT == "development":
-        logger.info("Creating database tables...")
-        Base.metadata.create_all(bind=engine)
-    
+    # NOTE: Commented out because baseline_items table is created via SQL migration
+    # if settings.ENVIRONMENT == "development":
+    #     logger.info("Creating database tables...")
+    #     Base.metadata.create_all(bind=engine)
+
+    # Start background jobs (IRT calibration, quality monitoring)
+    try:
+        from app.background_jobs import start_background_jobs
+
+        start_background_jobs()
+        logger.info("✅ Background jobs started")
+    except Exception as e:
+        logger.warning(f"⚠️ Background jobs failed to start: {e}")
+
     yield
-    
+
     # Shutdown
     logger.info("👋 Shutting down AIVO API Gateway...")
+
+    # Stop background jobs
+    try:
+        from app.background_jobs import stop_background_jobs
+
+        stop_background_jobs()
+        logger.info("✅ Background jobs stopped")
+    except Exception as e:
+        logger.warning(f"⚠️ Background jobs shutdown failed: {e}")
 
 
 # Create FastAPI application
@@ -81,20 +103,20 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 async def global_exception_handler(request: Request, exc: Exception):
     """Catch all exceptions and ensure CORS headers are sent."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    
+
     origin = request.headers.get("origin")
     headers = {}
     if origin in settings.CORS_ORIGINS:
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
-    
+
     return JSONResponse(
         status_code=500,
         content={
             "detail": "Internal server error",
-            "error": str(exc) if settings.DEBUG else "An error occurred"
+            "error": str(exc) if settings.DEBUG else "An error occurred",
         },
-        headers=headers
+        headers=headers,
     )
 
 
@@ -122,6 +144,7 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",

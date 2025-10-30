@@ -1,6 +1,8 @@
 """AI Inference Service Configuration."""
-from pydantic_settings import BaseSettings
+
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -42,6 +44,17 @@ class Settings(BaseSettings):
     HINT_COMPLEXITY_LEVELS: list = ["simple", "moderate", "detailed"]
     EXPLANATION_MAX_LENGTH: int = 500
     ADAPTIVE_DIFFICULTY: bool = True
+
+    # Agentic AI Features
+    ENABLE_AGENTIC_MODE: bool = False  # Feature flag
+    AGENTIC_CYCLE_INTERVAL_HOURS: int = 24  # Run autonomous cycle every 24 hours
+    AGENTIC_MEMORY_CONSOLIDATION_HOUR: int = 2  # Consolidate memories at 2 AM
+    AGENTIC_MAX_GOALS_PER_BRAIN: int = 4  # Max concurrent learning goals
+    AGENTIC_GOAL_TIME_HORIZON: str = "2_weeks"  # Default goal timeframe
+    AGENTIC_AUTONOMY_LEVEL: str = "GUIDED"  # MINIMAL, GUIDED, PROACTIVE, AUTONOMOUS
+    AGENTIC_PROACTIVE_MONITORING: bool = True  # Enable real-time monitoring
+    AGENTIC_MIN_IMPORTANCE_THRESHOLD: float = 0.5  # Min importance to store memory
+    AGENTIC_REFLECTION_FREQUENCY: str = "session_end"  # or "daily", "weekly"
 
     # OpenAI API (fallback)
     OPENAI_API_KEY: Optional[str] = None

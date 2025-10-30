@@ -1,5 +1,5 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { UserMenu } from './UserMenu';
 
 export function DashboardLayout() {
@@ -9,6 +9,7 @@ export function DashboardLayout() {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: '📊' },
     { name: 'Progress', href: '/progress', icon: '📈' },
+    { name: 'AI Brain', href: '/ai-brain', icon: '🧠' },
     { name: 'Devices', href: '/devices', icon: '📱' },
     { name: 'Invitations', href: '/invitations', icon: '✉️' },
     { name: 'Baseline Results', href: '/baseline-results', icon: '📋' },
