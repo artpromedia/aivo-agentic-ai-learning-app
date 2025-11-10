@@ -48,7 +48,7 @@
     "eslint": "^9.18.0",
     "happy-dom": "^20.0.7",
     "postcss": "^8.4.49",
-    "tailwindcss": "^4.1.14",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "vite": "^7.1.12",
     "vitest": "^3.2.4"
