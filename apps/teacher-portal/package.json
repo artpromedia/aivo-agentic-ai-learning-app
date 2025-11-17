@@ -21,7 +21,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.30.1",
-    "zustand": "^4.5.7"
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@aivo/eslint-config": "workspace:*",
