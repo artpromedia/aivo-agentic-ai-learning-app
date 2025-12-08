@@ -13,15 +13,15 @@
     "@aivo/types": "workspace:*",
     "@aivo/utils": "workspace:^",
     "clsx": "^2.1.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@aivo/eslint-config": "workspace:*",
     "@aivo/typescript-config": "workspace:*",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "eslint": "^9.0.0",
     "typescript": "^5.6.0"
   }
