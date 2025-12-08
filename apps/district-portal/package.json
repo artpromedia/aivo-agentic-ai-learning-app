@@ -14,9 +14,9 @@
     "@aivo/types": "workspace:*",
     "@aivo/ui": "workspace:*",
     "@aivo/utils": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^6.30.1",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-router-dom": "^7.10.1",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -24,8 +24,8 @@
     "@aivo/tailwind-config": "workspace:*",
     "@aivo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.14",
-    "@types/react": "^19.0.6",
-    "@types/react-dom": "^19.0.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
