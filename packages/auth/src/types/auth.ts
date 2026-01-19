@@ -25,6 +25,7 @@ export interface LoginCredentials {
   email: string;
   password: string;
   remember?: boolean;
+  userType?: string;
 }
 
 export interface AuthState {

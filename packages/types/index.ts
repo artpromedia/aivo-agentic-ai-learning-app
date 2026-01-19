@@ -9,3 +9,4 @@ export * from './sensory-profile';
 export * from './executive-function';
 export * from './theme';
 export * from './audit';
+export * from './onboarding';

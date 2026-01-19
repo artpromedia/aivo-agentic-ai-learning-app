@@ -60,6 +60,7 @@ export class HomeworkService {
       extractedContent,
       problemStatement: this.generateProblemStatement(extractedContent),
       keyQuestions: this.identifyKeyQuestions(extractedContent),
+      hints: [],
       currentStep: 'understand',
       completedSteps: [],
       workProducts: [],
@@ -235,7 +236,7 @@ export class HomeworkService {
 
     // Subject detection
     let subject = 'General';
-    if (text.includes('solve') || text.includes('equation') || content.detectedElements.hasMathEquations) {
+    if (text.includes('solve') || text.includes('equation') || content.detectedElements?.hasMathEquations) {
       subject = 'Math';
     } else if (text.includes('read') || text.includes('passage') || text.includes('essay') || text.includes('paragraph')) {
       subject = 'ELA';
@@ -243,7 +244,7 @@ export class HomeworkService {
       subject = 'Science';
     } else if (text.includes('historical') || text.includes('century') || text.includes('timeline')) {
       subject = 'History';
-    } else if (content.detectedElements.hasCode) {
+    } else if (content.detectedElements?.hasCode) {
       subject = 'Computer Science';
     }
 
@@ -258,7 +259,7 @@ export class HomeworkService {
    * Generate clear problem statement from extracted content
    */
   private generateProblemStatement(content: ExtractedContent): string {
-    const instructions = content.structuredContent.instructions;
+    const instructions = content.structuredContent?.instructions;
     if (instructions) {
       return instructions;
     }
@@ -272,7 +273,7 @@ export class HomeworkService {
    * Identify key questions from content
    */
   private identifyKeyQuestions(content: ExtractedContent): string[] {
-    const questions = content.structuredContent.questions || [];
+    const questions = content.structuredContent?.questions || [];
     
     if (questions.length > 0) {
       return questions;
@@ -393,11 +394,12 @@ export class HomeworkService {
     if (!stepHints) {
       return 'Try breaking down the problem step by step.';
     }
-    
-    const hint = stepHints[session.hintsGiven % stepHints.length] ?? 'Try breaking down the problem step by step.';
+
+    const hintsGiven = session.hintsGiven ?? 0;
+    const hint = stepHints[hintsGiven % stepHints.length] ?? 'Try breaking down the problem step by step.';
 
     this.updateSession(sessionId, {
-      hintsGiven: session.hintsGiven + 1,
+      hintsGiven: hintsGiven + 1,
     });
 
     return hint;
@@ -429,7 +431,7 @@ export class HomeworkService {
     const session = this.getSession(sessionId);
     if (session) {
       this.updateSession(sessionId, {
-        explanationsProvided: [...session.explanationsProvided, step],
+        explanationsProvided: [...(session.explanationsProvided ?? []), step],
       });
     }
 
@@ -445,9 +447,9 @@ export class HomeworkService {
 
     const stepOrder: HomeworkStep[] = ['understand', 'plan', 'solve', 'check'];
     const currentIndex = stepOrder.indexOf(session.currentStep);
-    
+
     // Add current step to completed
-    const completedSteps = [...session.completedSteps, session.currentStep];
+    const completedSteps = [...(session.completedSteps ?? []), session.currentStep];
     
     // Move to next step or mark as completed
     if (currentIndex < stepOrder.length - 1) {

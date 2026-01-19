@@ -1,5 +1,7 @@
 // Self-regulation and emotional support types
-export type EmotionState = 
+
+// All possible emotion values used in the application
+export type EmotionType =
   | 'calm'
   | 'happy'
   | 'excited'
@@ -7,15 +9,50 @@ export type EmotionState =
   | 'frustrated'
   | 'sad'
   | 'angry'
-  | 'overwhelmed';
+  | 'overwhelmed'
+  | 'anxiety'
+  | 'stress'
+  | 'panic'
+  | 'overstimulation'
+  | 'focus'
+  | 'fidgeting'
+  | 'tension'
+  | 'bedtime'
+  | 'hyperactivity'
+  | 'restlessness'
+  | 'excess-energy'
+  | 'sensory-seeking'
+  | 'overwhelm'
+  | 'meltdown'
+  | 'dissociation'
+  | 'shutdown'
+  | 'rumination'
+  | 'distraction'
+  | 'waiting'
+  | 'fear'
+  | 'worry'
+  | 'anger';
 
-export type RegulationTechnique = 
+// EmotionState is the object type used for tracking emotion records
+export interface EmotionState {
+  emotion: EmotionType;
+  level: number;
+  timestamp?: Date;
+}
+
+export type RegulationTechnique =
   | 'breathing'
   | 'movement'
   | 'sensory'
   | 'mindfulness'
   | 'visualization'
   | 'grounding';
+
+export interface VisualSupport {
+  type: 'animation' | 'image' | 'video';
+  description: string;
+  url?: string;
+}
 
 export interface RegulationActivity {
   id: string;
@@ -25,12 +62,14 @@ export interface RegulationActivity {
   duration: number; // in seconds
   difficulty: 'easy' | 'medium' | 'advanced';
   instructions: string[];
-  benefits: string[];
-  bestFor: EmotionState[];
+  benefits?: string[];
+  bestFor: string[]; // Allow any string for flexibility
   voiceGuidance?: boolean;
   visualAids?: string[];
   audioUrl?: string;
   videoUrl?: string;
+  icon?: string;
+  visualSupport?: VisualSupport;
 }
 
 export interface RegulationSession {
@@ -40,17 +79,19 @@ export interface RegulationSession {
   emotionBefore: EmotionState;
   emotionAfter?: EmotionState;
   completed: boolean;
-  duration: number;
-  helpful: boolean | null;
+  duration?: number;
+  helpful?: boolean | null;
   notes?: string;
-  createdAt: Date;
+  startTime?: Date;
+  endTime?: Date;
+  createdAt?: Date;
   completedAt?: Date;
 }
 
 export interface EmotionCheckIn {
   id: string;
   learnerId: string;
-  emotion: EmotionState;
+  emotion: EmotionType;
   intensity: number; // 1-10
   triggers?: string[];
   timestamp: Date;

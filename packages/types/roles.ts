@@ -1,7 +1,7 @@
 // Role and permission types
-export type UserRole = 'admin' | 'teacher' | 'parent' | 'learner' | 'district-admin' | 'super-admin';
+export type UserRole = 'admin' | 'teacher' | 'parent' | 'learner' | 'district-admin' | 'super-admin' | 'school-admin';
 
-export type Role = 
+export type Role =
   | 'super_admin'
   | 'global_admin' // Alias for super_admin
   | 'district_admin'
@@ -11,13 +11,15 @@ export type Role =
   | 'learner'
   | 'support_staff'
   | 'tech_support'
-  | 'legal_compliance';
+  | 'legal_compliance'
+  | 'finance_admin';
 
 export interface RoleDefinition {
   name: string;
   hierarchy_level: number;
   permissions: string[];
   description: string;
+  color?: string;
 }
 
 export const ROLES: Role[] = [
@@ -31,6 +33,7 @@ export const ROLES: Role[] = [
   'support_staff',
   'tech_support',
   'legal_compliance',
+  'finance_admin',
 ];
 
 export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
@@ -121,6 +124,17 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
     ],
     description: 'Manages legal compliance, privacy, and audit requirements',
   },
+  finance_admin: {
+    name: 'Finance Administrator',
+    hierarchy_level: 85,
+    permissions: [
+      'view_billing',
+      'manage_payments',
+      'view_reports',
+      'manage_subscriptions',
+    ],
+    description: 'Manages financial operations and billing',
+  },
 };
 
 export interface AdminUser {
@@ -130,7 +144,11 @@ export interface AdminUser {
   roles: Role[];
   district_id?: string;
   school_id?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  createdAt?: Date;
+  updated_at?: string;
   last_login?: string;
+  lastLogin?: Date;
+  active?: boolean;
+  mfa_enabled?: boolean;
 }

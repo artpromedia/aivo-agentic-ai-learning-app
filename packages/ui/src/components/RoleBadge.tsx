@@ -28,10 +28,12 @@ export const RoleBadge: React.FC<RoleBadgeProps> = ({
   };
 
   const iconMap: Record<Role, string> = {
+    super_admin: '🛡️',
     global_admin: '👑',
     finance_admin: '💰',
     tech_support: '🔧',
     legal_compliance: '⚖️',
+    support_staff: '🤝',
     district_admin: '🏛️',
     school_admin: '🏫',
     teacher: '👨‍🏫',

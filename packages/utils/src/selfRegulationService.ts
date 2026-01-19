@@ -417,7 +417,11 @@ export class SelfRegulationService {
   getSessions(learnerId: string): RegulationSession[] {
     return this.getAllSessions()
       .filter(s => s.learnerId === learnerId)
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+      .sort((a, b) => {
+        const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
+        const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+        return timeB - timeA;
+      });
   }
 
   /**
@@ -468,7 +472,7 @@ export class SelfRegulationService {
     cutoff.setDate(cutoff.getDate() - days);
 
     const recentEmotions = history.filter(
-      e => new Date(e.timestamp) >= cutoff
+      e => e.timestamp && new Date(e.timestamp) >= cutoff
     );
 
     if (recentEmotions.length === 0) {

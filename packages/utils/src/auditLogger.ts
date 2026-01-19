@@ -82,12 +82,12 @@ export class AuditLogger {
 
     // Filter by severities
     if (filters.severities && filters.severities.length > 0) {
-      filtered = filtered.filter(e => filters.severities!.includes(e.severity));
+      filtered = filtered.filter(e => e.severity && filters.severities!.includes(e.severity));
     }
 
     // Filter by actor
     if (filters.actorId) {
-      filtered = filtered.filter(e => e.actor.id === filters.actorId);
+      filtered = filtered.filter(e => e.actor?.id === filters.actorId);
     }
 
     // Filter by target
@@ -105,8 +105,8 @@ export class AuditLogger {
       const query = filters.searchQuery.toLowerCase();
       filtered = filtered.filter(e =>
         e.action.toLowerCase().includes(query) ||
-        e.actor.name.toLowerCase().includes(query) ||
-        e.actor.email?.toLowerCase().includes(query) ||
+        e.actor?.name.toLowerCase().includes(query) ||
+        e.actor?.email?.toLowerCase().includes(query) ||
         JSON.stringify(e.metadata).toLowerCase().includes(query)
       );
     }
@@ -142,11 +142,11 @@ export class AuditLogger {
       e.timestamp.toISOString(),
       e.eventType,
       e.category,
-      e.severity,
-      `${e.actor.name} (${e.actor.email || e.actor.id})`,
+      e.severity || '',
+      e.actor ? `${e.actor.name} (${e.actor.email || e.actor.id})` : '',
       e.action,
-      e.status,
-      e.actor.ipAddress,
+      e.status || '',
+      e.actor?.ipAddress || '',
       e.target ? `${e.target.type}:${e.target.id}` : '',
     ]);
 

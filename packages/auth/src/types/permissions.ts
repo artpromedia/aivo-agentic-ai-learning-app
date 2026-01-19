@@ -47,6 +47,7 @@ export enum Permission {
 }
 
 export const RolePermissions: Record<UserRole, Permission[]> = {
+  admin: Object.values(Permission),
   learner: [
     Permission.VIEW_OWN_PROGRESS,
     Permission.COMPLETE_ACTIVITIES,

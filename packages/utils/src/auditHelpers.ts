@@ -191,14 +191,18 @@ export function logDSRSubmitted(requestType: string, requestId: string, userEmai
 
 // System Events
 export function logSystemBackup(backupId: string, size: number) {
+  const currentActor = getCurrentActor();
   auditLog.log({
     eventType: 'system.backup_created',
     category: 'system',
     severity: 'info',
     actor: {
-      ...getCurrentActor(),
+      id: currentActor?.id ?? 'system',
       type: 'system',
       name: 'System',
+      email: currentActor?.email,
+      ipAddress: currentActor?.ipAddress,
+      userAgent: currentActor?.userAgent,
     },
     action: 'System backup created',
     metadata: {

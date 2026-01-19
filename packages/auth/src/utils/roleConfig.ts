@@ -9,6 +9,13 @@ export interface RoleConfig {
 }
 
 export const RoleConfigs: Record<UserRole, RoleConfig> = {
+  admin: {
+    name: 'Admin',
+    description: 'Administrator with elevated privileges',
+    level: 5,
+    color: 'purple',
+    defaultRoute: '/dashboard',
+  },
   learner: {
     name: 'Learner',
     description: 'Student accessing learning activities',

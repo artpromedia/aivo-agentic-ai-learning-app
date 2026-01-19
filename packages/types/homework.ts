@@ -1,5 +1,7 @@
 // Homework and assignment types
 export type HomeworkStep = 'understand' | 'plan' | 'solve' | 'check';
+export type HomeworkStatus = 'pending' | 'in-progress' | 'completed' | 'abandoned';
+export type OcrStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 export interface HomeworkFile {
   id: string;
@@ -8,13 +10,42 @@ export interface HomeworkFile {
   size: number;
   url: string;
   uploadedAt: Date;
+  ocrStatus?: OcrStatus;
+  extractedText?: string;
+  confidence?: number;
+}
+
+export interface StructuredContent {
+  instructions?: string;
+  questions?: string[];
+  context?: string;
+  rubric?: string;
+}
+
+export interface DetectedElements {
+  hasMathEquations: boolean;
+  hasImages: boolean;
+  hasTable: boolean;
+  hasCode: boolean;
+  language: string;
 }
 
 export interface ExtractedContent {
-  text: string;
+  text?: string;
   rawText: string;
   images?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+  structuredContent?: StructuredContent;
+  detectedElements?: DetectedElements;
+}
+
+export interface HomeworkSessionSettings {
+  readAloud: boolean;
+  parentAssistMode: boolean;
+  showHints: boolean;
+  allowCalculator: boolean;
+  timerEnabled: boolean;
+  breakReminders: boolean;
 }
 
 export interface HomeworkSession {
@@ -22,11 +53,13 @@ export interface HomeworkSession {
   learnerId: string;
   title?: string;
   subject?: string;
+  status?: HomeworkStatus;
   files: HomeworkFile[];
   textInput?: string;
+  originalText?: string;
   extractedContent?: ExtractedContent;
   currentStep: HomeworkStep;
-  steps: {
+  steps?: {
     understand?: {
       completed: boolean;
       keyPoints?: string[];
@@ -48,9 +81,20 @@ export interface HomeworkSession {
       feedback?: string;
     };
   };
+  completedSteps?: HomeworkStep[];
   keyQuestions: string[];
   hints: string[];
-  progress: number;
+  hintsGiven?: number;
+  explanationsProvided?: HomeworkStep[];
+  progress?: number;
+  problemStatement?: string;
+  detectedSubject?: string;
+  detectedGrade?: string;
+  targetLevel?: string;
+  workProducts?: WorkProduct[];
+  settings?: HomeworkSessionSettings;
+  scaffoldingLevel?: 'minimal' | 'moderate' | 'maximum';
+  inputMethod?: 'photo' | 'document' | 'text' | 'multiple';
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
@@ -59,14 +103,14 @@ export interface HomeworkSession {
 export interface WorkProduct {
   type: 'text' | 'image' | 'audio' | 'file';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface StepGuidance {
   step: HomeworkStep;
   title: string;
   description: string;
-  tips: string[];
+  tips?: string[];
   examples?: string[];
   prompts?: string[];
   resources?: Array<{
